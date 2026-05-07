@@ -807,19 +807,31 @@ input, textarea, select { font-family: inherit; outline: none; }
 }
 .modal-body input, .modal-body select, .modal-body textarea {
   width: 100%;
-  padding: 10px 12px;
-  background: rgba(255,255,255,.04);
-  border: 1px solid var(--border);
+  padding: 11px 12px;
+  background: rgba(0,0,0,.35);
+  border: 1.5px solid rgba(255,255,255,.12);
   border-radius: var(--r-sm);
   color: #fff;
-  font-size: .88rem;
+  font-size: .9rem;
   font-family: inherit;
-  transition: border-color .2s;
+  font-weight: 500;
+  transition: border-color .2s, background .2s;
 }
 .modal-body input:focus, .modal-body select:focus, .modal-body textarea:focus {
   border-color: var(--gold);
-  background: rgba(255,255,255,.06);
+  background: rgba(0,0,0,.5);
+  box-shadow: 0 0 0 3px rgba(212,160,23,.15);
 }
+.modal-body input::placeholder, .modal-body textarea::placeholder { color: rgba(255,255,255,.35); }
+/* Select desplegado usa apariencia nativa (texto oscuro sobre blanco) — esto es correcto y legible */
+.modal-body select option {
+  background: #fff;
+  color: #0a1f12;
+  font-weight: 600;
+  padding: 8px;
+}
+.modal-body input[type="number"]::-webkit-inner-spin-button { opacity: .5; }
+.modal-body input[type="date"] { color-scheme: dark; }
 .modal-body textarea { resize: vertical; min-height: 80px; }
 .modal-body small.help {
   display: block;
@@ -1669,7 +1681,8 @@ window.confirmarRegaloVIP = function(id) {
   const dias = parseInt(document.getElementById('diasRegalo').value, 10);
   const motivo = document.getElementById('motivoRegalo').value.trim();
   const vence = new Date(); vence.setDate(vence.getDate() + dias);
-  db.collection('miembros').doc(id).update({
+  const m = STATE.miembros.find(x => x.id === id);
+  const update = {
     estado: 'activo',
     plan: 'VIP Regalo',
     vence: vence.toISOString(),
@@ -1677,7 +1690,13 @@ window.confirmarRegaloVIP = function(id) {
     diasRegalo: dias,
     motivoRegalo: motivo || null,
     fechaRegalo: new Date().toISOString()
-  }).then(() => {
+  };
+  // Solo actualizar fechaUltimaActivacion si no la tiene (primer activación)
+  if (!m || !m.fechaUltimaActivacion) {
+    update.fechaUltimaActivacion = new Date().toISOString();
+  }
+  if (m && !m.cursosDesbloqueados) update.cursosDesbloqueados = [];
+  db.collection('miembros').doc(id).update(update).then(() => {
     cerrarModal();
     toast(`🎁 ${dias} días VIP regalados`, 'success');
   });
@@ -1742,9 +1761,14 @@ window.guardarMiembro = function() {
   const plan = document.getElementById('mPlan').value;
   const vence = document.getElementById('mVence').value;
   if (!nombre || !email) { toast('Completa nombre y email', 'error'); return; }
+  const ahora = new Date().toISOString();
   db.collection('miembros').add({
-    nombre, email, whatsapp, plan, vence: vence ? new Date(vence).toISOString() : null,
-    estado: 'activo', fechaRegistro: new Date().toISOString()
+    nombre, email, whatsapp, plan,
+    vence: vence ? new Date(vence).toISOString() : null,
+    estado: 'activo',
+    fechaRegistro: ahora,
+    fechaUltimaActivacion: ahora,
+    cursosDesbloqueados: []
   }).then(() => { cerrarModal(); toast('Miembro agregado', 'success'); });
 };
 
@@ -1806,15 +1830,37 @@ window.aprobarPago = function(id) {
   const p = STATE.pagosPendientes.find(x => x.id === id);
   if (!p) return;
   const vence = new Date(); vence.setMonth(vence.getMonth() + 1);
-  db.collection('miembros').add({
-    nombre: p.nombre, email: p.email, whatsapp: p.whatsapp || '',
-    plan: p.plan || 'VIP Mensual', vence: vence.toISOString(),
-    estado: 'activo', fechaRegistro: new Date().toISOString()
-  }).then(() => {
-    db.collection('pagos').add({ email: p.email, monto: p.monto || 200, plan: p.plan, fecha: new Date().toISOString() });
-    db.collection('pagos_pendientes').doc(id).delete();
-    toast('✓ Pago aprobado, miembro creado', 'success');
-  });
+  const ahora = new Date().toISOString();
+  // Buscar si ya existe miembro con ese email (para mantener cursosDesbloqueados)
+  const existente = STATE.miembros.find(m => m.email === p.email);
+  if (existente) {
+    // Renovación: solo actualiza vencimiento + fechaUltimaActivacion
+    db.collection('miembros').doc(existente.id).update({
+      estado: 'activo',
+      plan: p.plan || existente.plan || 'VIP Mensual',
+      vence: vence.toISOString(),
+      fechaUltimaActivacion: ahora
+    }).then(() => {
+      db.collection('pagos').add({ email: p.email, monto: p.monto || 200, plan: p.plan, fecha: ahora });
+      db.collection('pagos_pendientes').doc(id).delete();
+      toast('✓ Renovación aprobada · Drip continúa', 'success');
+    });
+  } else {
+    // Nuevo miembro
+    db.collection('miembros').add({
+      nombre: p.nombre, email: p.email, whatsapp: p.whatsapp || '',
+      plan: p.plan || 'VIP Mensual',
+      vence: vence.toISOString(),
+      estado: 'activo',
+      fechaRegistro: ahora,
+      fechaUltimaActivacion: ahora,
+      cursosDesbloqueados: []
+    }).then(() => {
+      db.collection('pagos').add({ email: p.email, monto: p.monto || 200, plan: p.plan, fecha: ahora });
+      db.collection('pagos_pendientes').doc(id).delete();
+      toast('✓ Pago aprobado · Nuevo miembro creado', 'success');
+    });
+  }
 };
 window.rechazarPago = function(id) {
   if (!confirm('¿Rechazar este pago?')) return;
@@ -1827,23 +1873,33 @@ window.rechazarPago = function(id) {
 PAGES.cursos = function() { renderCursos(); };
 function renderCursos() {
   const cont = document.getElementById('content');
+  // Ordenar cursos por ordenDrip ascendente
+  const cursosOrdenados = STATE.cursos.slice().sort((a,b) => (a.ordenDrip||999) - (b.ordenDrip||999));
   cont.innerHTML = `
     <div class="page-header">
-      <div><h1>🎓 Cursos <span style="font-size:.7em;color:var(--text-mute);font-weight:600;">${STATE.cursos.length}</span></h1><p>Gestiona los cursos del Establo</p></div>
+      <div>
+        <h1>🎓 Cursos <span style="font-size:.7em;color:var(--text-mute);font-weight:600;">${STATE.cursos.length}</span></h1>
+        <p>Gestiona los cursos del Establo · ordenados por secuencia de desbloqueo</p>
+      </div>
       <div class="page-header-actions">
         <button class="topbar-btn topbar-btn--primary" onclick="abrirModalNuevoCurso()">+ Nuevo curso</button>
       </div>
     </div>
     ${STATE.cursos.length === 0 ? `<div class="block"><div class="empty-state"><div class="empty-state-icon">🎓</div><h3>Aún no hay cursos</h3><p>Crea tu primer curso del Establo</p></div></div>` : `
+    <div style="background:rgba(212,160,23,.05);border:1px solid rgba(212,160,23,.2);border-radius:var(--r);padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:12px;font-size:.85rem;color:var(--text-soft);">
+      <span style="font-size:18px;">💡</span>
+      <span><strong style="color:var(--gold-light);">Sistema Drip:</strong> los cursos se desbloquean en secuencia. El curso #1 es libre para nuevos miembros. Cada siguiente curso se desbloquea según los días configurados desde su pago.</span>
+    </div>
     <div class="cards-grid">
-      ${STATE.cursos.map(c => {
+      ${cursosOrdenados.map(c => {
         const numClases = (c.clases || []).length;
-        const fotoStyle = c.foto ? `background-image:url('${escapeHTML(c.foto)}');` : `background:linear-gradient(135deg, ${c.color||'#1a5d3a'}, #0f3d27);`;
+        const orden = c.ordenDrip || '?';
+        const dias = c.diasDrip || 8;
         return `<div class="content-card">
-          <div class="content-card-thumb" style="${fotoStyle}background-size:cover;background-position:center;">
-            ${!c.foto ? `<span style="font-size:64px;filter:drop-shadow(0 4px 12px rgba(0,0,0,.4));">${c.emoji || '🎓'}</span>` : ''}
+          <div class="content-card-thumb" style="background-image:url('${escapeHTML(c.foto||'')}');background-size:cover;background-position:center;">
             <div class="content-card-thumb-overlay">
-              ${c.fechaDesbloqueo && new Date(c.fechaDesbloqueo) > new Date() ? '<span class="content-card-tag" style="background:rgba(245,158,11,.85);color:#000;">⏳ ' + fmtFechaCorta(c.fechaDesbloqueo) + '</span>' : '<span class="content-card-tag">⭐ VIP</span>'}
+              <span class="content-card-tag" style="background:rgba(212,160,23,.95);color:var(--bg-deep);font-weight:800;">#${orden}</span>
+              ${orden === 1 ? '<span class="content-card-tag" style="background:rgba(34,197,94,.85);color:#fff;">🆓 LIBRE</span>' : `<span class="content-card-tag" style="background:rgba(0,0,0,.7);color:#fff;">+${dias}d</span>`}
             </div>
           </div>
           <div class="content-card-body">
@@ -1851,7 +1907,8 @@ function renderCursos() {
             <div class="content-card-title">${escapeHTML(c.titulo || 'Sin título')}</div>
             <div class="content-card-meta">
               <span>📚 ${numClases} clase${numClases !== 1 ? 's' : ''}</span>
-              ${c.fechaDesbloqueo ? `<span>📅 ${fmtFechaCorta(c.fechaDesbloqueo)}</span>` : ''}
+              <span>🔢 Orden #${orden}</span>
+              ${orden > 1 ? `<span>📅 ${dias} días</span>` : ''}
             </div>
             <div class="content-card-actions">
               <button class="action-btn action-btn--ghost" onclick="gestionarClases('${c.id}')">📋 Clases (${numClases})</button>
@@ -1867,20 +1924,33 @@ function renderCursos() {
 
 window.abrirModalNuevoCurso = function(curso) {
   const c = curso || {};
+  // Calcular siguiente orden disponible
+  const ordenes = STATE.cursos.map(x => x.ordenDrip || 0);
+  const siguienteOrden = ordenes.length ? Math.max(...ordenes) + 1 : 1;
   abrirModal(`
     <div class="modal-head"><h3>${curso ? '✎ Editar curso' : '+ Nuevo curso'}</h3><button class="modal-close" onclick="cerrarModal()">×</button></div>
     <div class="modal-body">
       <div class="field"><label>Título *</label><input type="text" id="cTitulo" value="${escapeHTML(c.titulo||'')}" placeholder="Inseminación artificial bovina"></div>
-      <div class="field-row">
-        <div class="field"><label>Categoría</label><select id="cCategoria">
-          <option>BOVINOS</option><option>OVINOS</option><option>CAPRINOS</option><option>AVES</option><option>PORCINOS</option><option>EQUINOS</option><option>APICULTURA</option><option>GENERAL</option>
-        </select></div>
-        <div class="field"><label>Emoji</label><input type="text" id="cEmoji" value="${escapeHTML(c.emoji||'🐂')}" maxlength="2"></div>
+      <div class="field"><label>Categoría *</label><select id="cCategoria">
+        <option>BOVINOS</option><option>OVINOS</option><option>CAPRINOS</option><option>AVES</option><option>PORCINOS</option><option>EQUINOS</option><option>APICULTURA</option><option>GENERAL</option>
+      </select></div>
+      <div class="field">
+        <label>📸 URL de la foto del curso *</label>
+        <input type="url" id="cFoto" value="${escapeHTML(c.foto||'')}" placeholder="https://i.imgur.com/...jpg">
+        <small class="help">Imagen horizontal (16:9). Sube a Imgur, Google Drive, etc. y pega el link directo.</small>
       </div>
-      <div class="field"><label>Foto (URL opcional)</label><input type="url" id="cFoto" value="${escapeHTML(c.foto||'')}" placeholder="https://..."></div>
+      <div id="cFotoPreview" style="display:${c.foto?'block':'none'};margin-bottom:14px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border);aspect-ratio:16/9;background:#0a1f12 url('${escapeHTML(c.foto||'')}') center/cover;"></div>
       <div class="field-row">
-        <div class="field"><label>Color (si no hay foto)</label><input type="color" id="cColor" value="${c.color || '#1a5d3a'}"></div>
-        <div class="field"><label>Fecha desbloqueo (opcional)</label><input type="date" id="cFechaDesbloqueo" value="${c.fechaDesbloqueo ? c.fechaDesbloqueo.split('T')[0] : ''}"></div>
+        <div class="field">
+          <label>🔢 Orden de desbloqueo *</label>
+          <input type="number" id="cOrdenDrip" value="${c.ordenDrip || siguienteOrden}" min="1">
+          <small class="help">1 = primer curso (siempre libre). 2, 3, 4... siguientes en cola.</small>
+        </div>
+        <div class="field">
+          <label>📅 Días para desbloqueo</label>
+          <input type="number" id="cDiasDrip" value="${c.diasDrip || 8}" min="0">
+          <small class="help">Días entre cursos (default 8).</small>
+        </div>
       </div>
       <div class="field"><label>Descripción</label><textarea id="cDesc" placeholder="De qué trata el curso...">${escapeHTML(c.descripcion||'')}</textarea></div>
     </div>
@@ -1890,18 +1960,31 @@ window.abrirModalNuevoCurso = function(curso) {
     </div>
   `);
   if (c.categoria) document.getElementById('cCategoria').value = c.categoria;
+  // Live preview de la foto al teclear URL
+  const fotoInput = document.getElementById('cFoto');
+  const preview = document.getElementById('cFotoPreview');
+  fotoInput.addEventListener('input', () => {
+    const url = fotoInput.value.trim();
+    if (url) {
+      preview.style.display = 'block';
+      preview.style.background = `#0a1f12 url('${url}') center/cover`;
+    } else {
+      preview.style.display = 'none';
+    }
+  });
 };
 window.guardarCurso = function(id) {
   const datos = {
     titulo: document.getElementById('cTitulo').value.trim(),
     categoria: document.getElementById('cCategoria').value,
-    emoji: document.getElementById('cEmoji').value.trim() || '🐂',
     foto: document.getElementById('cFoto').value.trim(),
-    color: document.getElementById('cColor').value,
-    fechaDesbloqueo: document.getElementById('cFechaDesbloqueo').value ? new Date(document.getElementById('cFechaDesbloqueo').value).toISOString() : null,
+    ordenDrip: parseInt(document.getElementById('cOrdenDrip').value) || 1,
+    diasDrip: parseInt(document.getElementById('cDiasDrip').value) || 8,
     descripcion: document.getElementById('cDesc').value.trim()
   };
   if (!datos.titulo) { toast('El título es obligatorio', 'error'); return; }
+  if (!datos.foto) { toast('La foto es obligatoria', 'error'); return; }
+  if (!/^https?:\/\//i.test(datos.foto)) { toast('La foto debe ser una URL válida (http/https)', 'error'); return; }
   if (id) {
     db.collection('cursos').doc(id).update(datos).then(() => { cerrarModal(); toast('Curso actualizado', 'success'); });
   } else {
