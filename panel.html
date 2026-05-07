@@ -756,6 +756,7 @@ input, textarea, select { font-family: inherit; outline: none; }
   align-items: center; justify-content: center;
   padding: 20px;
   animation: fadeIn .2s ease;
+  overflow-y: auto;
 }
 .modal-overlay.active { display: flex; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -766,6 +767,16 @@ input, textarea, select { font-family: inherit; outline: none; }
   width: 100%; max-width: 520px;
   max-height: 90vh; overflow-y: auto;
   animation: modalIn .35s cubic-bezier(.2,.8,.3,1.2);
+  margin: auto;
+}
+@media (max-width: 640px) {
+  .modal-overlay { padding: 0; align-items: flex-end; }
+  .modal { max-height: 92vh; border-radius: var(--r-lg) var(--r-lg) 0 0; max-width: 100%; }
+  .field-row { grid-template-columns: 1fr !important; }
+  .modal-head { padding: 16px 18px; }
+  .modal-body { padding: 18px; }
+  .modal-foot { padding: 14px 18px; flex-wrap: wrap; }
+  .modal-foot .action-btn { flex: 1; }
 }
 @keyframes modalIn {
   from { opacity: 0; transform: scale(.94) translateY(20px); }
@@ -1311,62 +1322,79 @@ function ytId(url) {
 // SUSCRIPCIONES FIRESTORE
 // ═══════════════════════════════════════════════════════════
 function suscribirTodo() {
-  db.collection('miembros').onSnapshot(snap => {
+  // Helper: suscripción silenciosa que no truena si faltan permisos
+  function safeSnapshot(query, handler, label) {
+    return query.onSnapshot(handler, err => {
+      console.warn(`⚠️ Sin permisos para "${label}":`, err.code);
+    });
+  }
+
+  safeSnapshot(db.collection('miembros'), snap => {
     STATE.miembros = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     actualizarBadges();
     if (STATE.currentPage === 'dashboard') renderDashboard();
     if (STATE.currentPage === 'miembros') renderMiembros();
-  });
-  db.collection('pagos_pendientes').onSnapshot(snap => {
+  }, 'miembros');
+
+  safeSnapshot(db.collection('pagos_pendientes'), snap => {
     STATE.pagosPendientes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     actualizarBadges();
     if (STATE.currentPage === 'dashboard') renderDashboard();
     if (STATE.currentPage === 'pendientes') renderPendientes();
-  });
-  db.collection('cursos').onSnapshot(snap => {
+  }, 'pagos_pendientes');
+
+  safeSnapshot(db.collection('cursos'), snap => {
     STATE.cursos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     actualizarBadges();
     if (STATE.currentPage === 'dashboard') renderDashboard();
     if (STATE.currentPage === 'cursos') renderCursos();
-  });
-  db.collection('videos').onSnapshot(snap => {
+  }, 'cursos');
+
+  safeSnapshot(db.collection('videos'), snap => {
     STATE.videos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     actualizarBadges();
     if (STATE.currentPage === 'videos') renderVideos();
-  });
-  db.collection('pdfs').onSnapshot(snap => {
+  }, 'videos');
+
+  safeSnapshot(db.collection('pdfs'), snap => {
     STATE.pdfs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     actualizarBadges();
     if (STATE.currentPage === 'pdfs') renderPdfs();
-  });
-  db.collection('sesiones').onSnapshot(snap => {
+  }, 'pdfs');
+
+  safeSnapshot(db.collection('sesiones'), snap => {
     STATE.webinars = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     actualizarBadges();
     if (STATE.currentPage === 'webinars') renderWebinars();
     if (STATE.currentPage === 'dashboard') renderDashboard();
-  });
-  db.collection('notificaciones').orderBy('fecha','desc').limit(50).onSnapshot(snap => {
+  }, 'sesiones');
+
+  safeSnapshot(db.collection('notificaciones').orderBy('fecha','desc').limit(50), snap => {
     STATE.notificaciones = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (STATE.currentPage === 'avisos') renderAvisos();
     if (STATE.currentPage === 'dashboard') renderDashboard();
-  });
-  db.collection('pagos').orderBy('fecha','desc').limit(100).onSnapshot(snap => {
+  }, 'notificaciones');
+
+  safeSnapshot(db.collection('pagos').orderBy('fecha','desc').limit(100), snap => {
     STATE.pagos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (STATE.currentPage === 'pagos') renderPagos();
     if (STATE.currentPage === 'dashboard') renderDashboard();
-  });
-  db.collection('config').doc('club').onSnapshot(snap => {
+  }, 'pagos');
+
+  safeSnapshot(db.collection('config').doc('club'), snap => {
     STATE.config = snap.exists ? snap.data() : {};
     if (STATE.currentPage === 'config') renderConfig();
-  });
-  db.collection('certificados').limit(100).onSnapshot(snap => {
+  }, 'config');
+
+  safeSnapshot(db.collection('certificados').limit(100), snap => {
     STATE.certificados = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (STATE.currentPage === 'certificados') renderCertificados();
-  }, () => {});
-  db.collection('examenes').limit(100).onSnapshot(snap => {
+  }, 'certificados');
+
+  safeSnapshot(db.collection('examenes').limit(100), snap => {
     STATE.examenes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (STATE.currentPage === 'examenes') renderExamenes();
-  }, () => {});
+  }, 'examenes');
 }
 
 function actualizarBadges() {
