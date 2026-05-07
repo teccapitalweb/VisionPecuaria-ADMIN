@@ -1959,13 +1959,16 @@ window.abrirModalNuevoCurso = function(curso) {
     <div class="modal-head"><h3>${curso ? '✎ Editar curso' : '+ Nuevo curso'}</h3><button class="modal-close" onclick="cerrarModal()">×</button></div>
     <div class="modal-body">
       <div class="field"><label>Título *</label><input type="text" id="cTitulo" value="${escapeHTML(c.titulo||'')}" placeholder="Inseminación artificial bovina"></div>
-      <div class="field"><label>Categoría *</label><select id="cCategoria">
-        <option>BOVINOS</option><option>OVINOS</option><option>CAPRINOS</option><option>AVES</option><option>PORCINOS</option><option>EQUINOS</option><option>APICULTURA</option><option>GENERAL</option>
-      </select></div>
+      <div class="field-row">
+        <div class="field"><label>Categoría *</label><select id="cCategoria">
+          <option>BOVINOS</option><option>OVINOS</option><option>CAPRINOS</option><option>AVES</option><option>PORCINOS</option><option>EQUINOS</option><option>APICULTURA</option><option>GENERAL</option>
+        </select></div>
+        <div class="field"><label>👤 Instructor del curso *</label><input type="text" id="cInstructor" value="${escapeHTML(c.instructor||'')}" placeholder="MVZ. Bertín García"></div>
+      </div>
       <div class="field">
         <label>📸 URL de la foto del curso *</label>
-        <input type="url" id="cFoto" value="${escapeHTML(c.foto||'')}" placeholder="https://i.imgur.com/...jpg">
-        <small class="help">Imagen horizontal (16:9). Sube a Imgur, Google Drive, etc. y pega el link directo.</small>
+        <input type="url" id="cFoto" value="${escapeHTML(c.foto||'')}" placeholder="https://drive.google.com/file/d/...">
+        <small class="help">Google Drive (compartido como público), Imgur, etc. Imagen horizontal 16:9.</small>
       </div>
       <div id="cFotoPreview" style="display:${c.foto?'block':'none'};margin-bottom:14px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border);aspect-ratio:16/9;background:#0a1f12 url('${escapeHTML(c.foto||'')}') center/cover;"></div>
       <div class="field-row">
@@ -2001,18 +2004,36 @@ window.abrirModalNuevoCurso = function(curso) {
     }
   });
 };
+// Helper: convierte URL de Google Drive a URL pública para img
+function normalizarUrlImagen(url) {
+  if (!url) return '';
+  // Google Drive: convertir /file/d/{id}/view → /thumbnail?id={id}&sz=w1200
+  const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^\/\?]+)/);
+  if (driveMatch) {
+    return `https://drive.google.com/thumbnail?id=${driveMatch[1]}&sz=w1200`;
+  }
+  // Google Drive open?id= format
+  const driveMatch2 = url.match(/drive\.google\.com\/open\?id=([^&]+)/);
+  if (driveMatch2) {
+    return `https://drive.google.com/thumbnail?id=${driveMatch2[1]}&sz=w1200`;
+  }
+  return url;
+}
+
 window.guardarCurso = function(id) {
+  const fotoRaw = document.getElementById('cFoto').value.trim();
   const datos = {
     titulo: document.getElementById('cTitulo').value.trim(),
     categoria: document.getElementById('cCategoria').value,
-    foto: document.getElementById('cFoto').value.trim(),
+    foto: normalizarUrlImagen(fotoRaw),
+    instructor: document.getElementById('cInstructor').value.trim(),
     ordenDrip: parseInt(document.getElementById('cOrdenDrip').value) || 1,
     diasDrip: parseInt(document.getElementById('cDiasDrip').value) || 8,
     descripcion: document.getElementById('cDesc').value.trim()
   };
   if (!datos.titulo) { toast('El título es obligatorio', 'error'); return; }
-  if (!datos.foto) { toast('La foto es obligatoria', 'error'); return; }
-  if (!/^https?:\/\//i.test(datos.foto)) { toast('La foto debe ser una URL válida (http/https)', 'error'); return; }
+  if (!fotoRaw) { toast('La foto es obligatoria', 'error'); return; }
+  if (!/^https?:\/\//i.test(fotoRaw)) { toast('La foto debe ser una URL válida (http/https)', 'error'); return; }
   if (id) {
     db.collection('cursos').doc(id).update(datos).then(() => { cerrarModal(); toast('Curso actualizado', 'success'); });
   } else {
@@ -2038,13 +2059,16 @@ window.gestionarClases = function(cursoId) {
   abrirModal(`
     <div class="modal-head"><h3>📋 Clases de "${escapeHTML(c.titulo)}"</h3><button class="modal-close" onclick="cerrarModal()">×</button></div>
     <div class="modal-body">
+      <div style="background:rgba(212,160,23,.05);border:1px solid rgba(212,160,23,.2);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;font-size:.82rem;color:var(--text-soft);">
+        <span style="color:var(--gold-light);font-weight:700;">👤 Instructor:</span> ${escapeHTML(c.instructor || 'Sin asignar')}
+      </div>
       <div id="clasesList">
         ${clases.length === 0 ? '<p style="color:var(--text-mute);text-align:center;padding:20px;">Aún no hay clases. Agrega la primera ↓</p>' : clases.map((cl, i) => `
           <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;margin-bottom:8px;display:flex;gap:10px;align-items:center;">
             <div style="width:30px;height:30px;background:var(--gold-soft);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--gold-light);font-size:.85rem;flex-shrink:0;">${i+1}</div>
             <div style="flex:1;min-width:0;">
               <div style="font-weight:700;font-size:.9rem;">${escapeHTML(cl.titulo || 'Sin título')}</div>
-              <div style="font-size:.72rem;color:var(--text-mute);">${cl.duracion ? '⏱ '+cl.duracion : ''} ${cl.instructor ? '· '+escapeHTML(cl.instructor) : ''}</div>
+              <div style="font-size:.72rem;color:var(--text-mute);margin-top:2px;">${cl.url ? '📹 Video cargado' : '⚠️ Sin video'}</div>
             </div>
             <button class="action-btn action-btn--ghost" onclick="editarClase('${cursoId}', ${i})">✎</button>
             <button class="action-btn action-btn--danger" onclick="eliminarClase('${cursoId}', ${i})">🗑</button>
@@ -2059,16 +2083,20 @@ window.gestionarClases = function(cursoId) {
   `);
 };
 window.agregarClase = function(cursoId) {
+  const c = STATE.cursos.find(x => x.id === cursoId);
+  const instructorCurso = c?.instructor || 'Sin instructor';
   abrirModal(`
     <div class="modal-head"><h3>+ Nueva clase</h3><button class="modal-close" onclick="gestionarClases('${cursoId}')">×</button></div>
     <div class="modal-body">
-      <div class="field"><label>Título *</label><input type="text" id="clTitulo" placeholder="Lección 1: Introducción"></div>
-      <div class="field"><label>URL del video (YouTube)</label><input type="url" id="clUrl" placeholder="https://youtube.com/watch?v=..."></div>
-      <div class="field-row">
-        <div class="field"><label>Duración</label><input type="text" id="clDuracion" placeholder="15 min"></div>
-        <div class="field"><label>Instructor</label><input type="text" id="clInstructor" placeholder="MVZ. Nombre"></div>
+      <div style="background:rgba(212,160,23,.05);border:1px solid rgba(212,160,23,.2);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;font-size:.82rem;color:var(--text-soft);">
+        <span style="color:var(--gold-light);font-weight:700;">👤 Instructor:</span> ${escapeHTML(instructorCurso)} <small style="color:var(--text-mute);">(heredado del curso)</small>
       </div>
-      <div class="field"><label>Descripción (opcional)</label><textarea id="clDesc" placeholder="Qué se ve en esta clase..."></textarea></div>
+      <div class="field"><label>Título de la clase *</label><input type="text" id="clTitulo" placeholder="Lección 1: Introducción"></div>
+      <div class="field">
+        <label>📹 URL del video *</label>
+        <input type="url" id="clUrl" placeholder="https://drive.google.com/file/d/...">
+        <small class="help">Sube el video a Google Drive (público) o pega un link directo MP4.</small>
+      </div>
     </div>
     <div class="modal-foot">
       <button class="action-btn action-btn--ghost" onclick="gestionarClases('${cursoId}')">Cancelar</button>
@@ -2080,16 +2108,19 @@ window.editarClase = function(cursoId, idx) {
   const c = STATE.cursos.find(x => x.id === cursoId);
   if (!c) return;
   const cl = c.clases[idx];
+  const instructorCurso = c?.instructor || 'Sin instructor';
   abrirModal(`
     <div class="modal-head"><h3>✎ Editar clase</h3><button class="modal-close" onclick="gestionarClases('${cursoId}')">×</button></div>
     <div class="modal-body">
-      <div class="field"><label>Título *</label><input type="text" id="clTitulo" value="${escapeHTML(cl.titulo||'')}"></div>
-      <div class="field"><label>URL del video</label><input type="url" id="clUrl" value="${escapeHTML(cl.url||cl.videoUrl||'')}"></div>
-      <div class="field-row">
-        <div class="field"><label>Duración</label><input type="text" id="clDuracion" value="${escapeHTML(cl.duracion||'')}"></div>
-        <div class="field"><label>Instructor</label><input type="text" id="clInstructor" value="${escapeHTML(cl.instructor||'')}"></div>
+      <div style="background:rgba(212,160,23,.05);border:1px solid rgba(212,160,23,.2);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;font-size:.82rem;color:var(--text-soft);">
+        <span style="color:var(--gold-light);font-weight:700;">👤 Instructor:</span> ${escapeHTML(instructorCurso)} <small style="color:var(--text-mute);">(heredado del curso)</small>
       </div>
-      <div class="field"><label>Descripción</label><textarea id="clDesc">${escapeHTML(cl.descripcion||'')}</textarea></div>
+      <div class="field"><label>Título de la clase *</label><input type="text" id="clTitulo" value="${escapeHTML(cl.titulo||'')}"></div>
+      <div class="field">
+        <label>📹 URL del video *</label>
+        <input type="url" id="clUrl" value="${escapeHTML(cl.url||cl.videoUrl||'')}" placeholder="https://drive.google.com/file/d/...">
+        <small class="help">Google Drive (público) o link directo MP4.</small>
+      </div>
     </div>
     <div class="modal-foot">
       <button class="action-btn action-btn--ghost" onclick="gestionarClases('${cursoId}')">Cancelar</button>
@@ -2097,15 +2128,25 @@ window.editarClase = function(cursoId, idx) {
     </div>
   `);
 };
+// Helper: convierte URL Google Drive video → URL embed reproducible
+function normalizarUrlVideo(url) {
+  if (!url) return '';
+  // Google Drive: convertir /file/d/{id}/view → /file/d/{id}/preview (player embebido oficial)
+  const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^\/\?]+)/);
+  if (driveMatch) {
+    return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
+  }
+  return url;
+}
 window.guardarClase = function(cursoId, idx) {
   const titulo = document.getElementById('clTitulo').value.trim();
+  const urlRaw = document.getElementById('clUrl').value.trim();
   if (!titulo) { toast('Título obligatorio', 'error'); return; }
+  if (!urlRaw) { toast('URL del video obligatoria', 'error'); return; }
   const clase = {
     titulo,
-    url: document.getElementById('clUrl').value.trim(),
-    duracion: document.getElementById('clDuracion').value.trim(),
-    instructor: document.getElementById('clInstructor').value.trim(),
-    descripcion: document.getElementById('clDesc').value.trim()
+    url: normalizarUrlVideo(urlRaw),
+    urlOriginal: urlRaw // Guardamos también el original por si hay que reprocesar
   };
   const c = STATE.cursos.find(x => x.id === cursoId);
   if (!c) return;
