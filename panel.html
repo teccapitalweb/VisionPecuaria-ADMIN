@@ -643,6 +643,7 @@ input, textarea, select { font-family: inherit; outline: none; }
 .status--pending { background: rgba(245,158,11,.12); color: #fbbf24; border: 1px solid rgba(245,158,11,.3); }
 .status--expired { background: rgba(239,68,68,.12); color: #f87171; border: 1px solid rgba(239,68,68,.3); }
 .status--inactive { background: rgba(255,255,255,.05); color: var(--text-mute); border: 1px solid var(--border); }
+.status--free { background: rgba(59,130,246,.12); color: #60a5fa; border: 1px solid rgba(59,130,246,.3); }
 
 .action-btn {
   padding: 6px 12px;
@@ -1158,7 +1159,8 @@ const db = firebase.firestore();
 // STATE GLOBAL
 // ═══════════════════════════════════════════════════════════
 const STATE = {
-  miembros: [],
+  miembros: [],          // Pagados (VIP)
+  usuariosFree: [],      // Solo registrados sin pagar
   pagosPendientes: [],
   cursos: [],
   videos: [],
@@ -1171,6 +1173,22 @@ const STATE = {
   config: {},
   currentPage: 'dashboard'
 };
+
+// Combina miembros + usuarios_free en una sola lista normalizada
+function todosLosUsuarios() {
+  const miembros = STATE.miembros.map(m => ({ ...m, _tipo: 'miembro' }));
+  const free = STATE.usuariosFree
+    // Si ya existe en miembros (mismo email), no duplicar
+    .filter(u => !STATE.miembros.find(m => m.email === u.email))
+    .map(u => ({
+      ...u,
+      _tipo: 'free',
+      plan: u.plan || 'Free',
+      estado: 'free',
+      fechaRegistro: u.fechaRegistro?.toDate ? u.fechaRegistro.toDate().toISOString() : (u.fechaRegistro || null)
+    }));
+  return [...miembros, ...free];
+}
 
 // ═══════════════════════════════════════════════════════════
 // AUTH GUARD
@@ -1336,6 +1354,14 @@ function suscribirTodo() {
     if (STATE.currentPage === 'miembros') renderMiembros();
   }, 'miembros');
 
+  // Usuarios FREE (registrados sin pagar - vienen del landing)
+  safeSnapshot(db.collection('usuarios_free'), snap => {
+    STATE.usuariosFree = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    actualizarBadges();
+    if (STATE.currentPage === 'dashboard') renderDashboard();
+    if (STATE.currentPage === 'miembros') renderMiembros();
+  }, 'usuarios_free');
+
   safeSnapshot(db.collection('pagos_pendientes'), snap => {
     STATE.pagosPendientes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     actualizarBadges();
@@ -1398,8 +1424,9 @@ function suscribirTodo() {
 }
 
 function actualizarBadges() {
+  const totalUsuarios = STATE.miembros.length + STATE.usuariosFree.filter(u => !STATE.miembros.find(m => m.email === u.email)).length;
   const sets = [
-    ['badgeMiembros', STATE.miembros.length],
+    ['badgeMiembros', totalUsuarios],
     ['badgePendientes', STATE.pagosPendientes.length],
     ['badgeCursos', STATE.cursos.length],
     ['badgeVideos', STATE.videos.length],
@@ -1437,6 +1464,8 @@ PAGES.dashboard = function() { renderDashboard(); };
 function renderDashboard() {
   const cont = document.getElementById('content');
   const totalMiembros = STATE.miembros.length;
+  const totalFree = STATE.usuariosFree.filter(u => !STATE.miembros.find(m => m.email === u.email)).length;
+  const totalUsuarios = totalMiembros + totalFree;
   const activos = STATE.miembros.filter(m => m.estado === 'activo').length;
   const pendientes = STATE.pagosPendientes.length;
   const cursosTotal = STATE.cursos.length;
@@ -1463,11 +1492,11 @@ function renderDashboard() {
       <div class="kpi kpi--miembros">
         <div class="kpi-head">
           <div class="kpi-icon">👥</div>
-          <div class="kpi-label">Miembros activos</div>
-          <span class="kpi-trend kpi-trend--up">▲ ${activos}</span>
+          <div class="kpi-label">Total usuarios</div>
+          <span class="kpi-trend kpi-trend--up">▲ ${activos} VIP</span>
         </div>
-        <div class="kpi-value">${totalMiembros}</div>
-        <div class="kpi-detail">${activos} activos · ${totalMiembros - activos} inactivos</div>
+        <div class="kpi-value">${totalUsuarios}</div>
+        <div class="kpi-detail">${activos} VIP · ${totalFree} Free · ${totalMiembros - activos} inactivos</div>
       </div>
       <div class="kpi kpi--pendientes">
         <div class="kpi-head">
@@ -1550,7 +1579,7 @@ function renderDashboard() {
           <h3>👥 Últimos miembros</h3>
           <button class="action-btn action-btn--ghost" onclick="navigateTo('miembros')">Ver todos →</button>
         </div>
-        ${renderTablaMiembros(STATE.miembros.slice(0,5), true)}
+        ${renderTablaMiembros(todosLosUsuarios().slice(0,5), true)}
       </div>
       <div class="block">
         <div class="block-head">
@@ -1564,9 +1593,9 @@ function renderDashboard() {
 
 function renderActividad() {
   const evs = [];
-  STATE.miembros.slice(0,3).forEach(m => evs.push({
-    icon: '👋', tipo: 'gold',
-    text: `<strong>${escapeHTML(m.nombre || m.email || 'Nuevo')}</strong> se registró`,
+  todosLosUsuarios().slice(0,3).forEach(m => evs.push({
+    icon: m._tipo === 'free' ? '🆕' : '👋', tipo: m._tipo === 'free' ? 'info' : 'gold',
+    text: `<strong>${escapeHTML(m.nombre || m.email || 'Nuevo')}</strong> ${m._tipo === 'free' ? 'se registró (FREE)' : 'se registró'}`,
     time: m.fechaRegistro
   }));
   STATE.pagos.slice(0,3).forEach(p => evs.push({
@@ -1593,35 +1622,45 @@ function renderActividad() {
 }
 
 function renderTablaMiembros(lista, mini) {
-  if (!lista.length) return '<div class="empty-state"><div class="empty-state-icon">👥</div><h3>Sin miembros aún</h3><p>Cuando alguien se registre aparecerá aquí</p></div>';
+  if (!lista.length) return '<div class="empty-state"><div class="empty-state-icon">👥</div><h3>Sin usuarios aún</h3><p>Cuando alguien se registre aparecerá aquí</p></div>';
   return `<table class="data-table">
     <thead><tr>
-      <th>Miembro</th><th>Plan</th><th>Estado</th>${mini ? '' : '<th>Vence</th><th></th>'}
+      <th>Usuario</th><th>Plan</th><th>Estado</th>${mini ? '' : '<th>Registro</th><th>Vence</th><th></th>'}
     </tr></thead>
     <tbody>
       ${lista.map(m => {
+        const esFree = m._tipo === 'free';
         const plan = (m.plan || '').toLowerCase();
         let pill = 'plan-pill--free';
         if (plan.includes('regalo')) pill = 'plan-pill--regalo';
         else if (plan.includes('anual')) pill = 'plan-pill--anual';
         else if (plan.includes('mensual')) pill = 'plan-pill--mensual';
-        const venceFut = m.vence && new Date(m.vence) > new Date();
-        const estado = m.estado === 'activo' && venceFut ? 'active' : (m.estado === 'activo' ? 'expired' : 'inactive');
-        const stTxt = estado === 'active' ? 'Activo' : (estado === 'expired' ? 'Vencido' : 'Inactivo');
+
+        let estado, stTxt;
+        if (esFree) {
+          estado = 'free'; stTxt = '🆓 FREE';
+        } else {
+          const venceFut = m.vence && new Date(m.vence) > new Date();
+          estado = m.estado === 'activo' && venceFut ? 'active' : (m.estado === 'activo' ? 'expired' : 'inactive');
+          stTxt = estado === 'active' ? 'Activo' : (estado === 'expired' ? 'Vencido' : 'Inactivo');
+        }
+
         return `<tr>
           <td><div class="member-cell">
-            <div class="member-avatar">${iniciales(m.nombre || m.email)}</div>
+            <div class="member-avatar" style="${esFree?'background:linear-gradient(135deg,rgba(59,130,246,.3),rgba(59,130,246,.15));border-color:rgba(59,130,246,.4);color:#60a5fa;':''}">${iniciales(m.nombre || m.email)}</div>
             <div>
               <div class="member-name">${escapeHTML(m.nombre || '—')}</div>
               <div class="member-email">${escapeHTML(m.email || '')}</div>
             </div>
           </div></td>
-          <td><span class="plan-pill ${pill}">${escapeHTML(m.plan || 'Free')}</span></td>
+          <td><span class="plan-pill ${pill}">${escapeHTML(esFree ? 'Free' : (m.plan || 'Free'))}</span></td>
           <td><span class="status status--${estado}">${stTxt}</span></td>
-          ${mini ? '' : `<td>${fmtFecha(m.vence)}</td>
+          ${mini ? '' : `<td>${fmtFecha(m.fechaRegistro)}</td><td>${esFree ? '—' : fmtFecha(m.vence)}</td>
           <td>
-            <button class="action-btn action-btn--ghost" onclick="verMiembro('${m.id}')">Ver</button>
-            <button class="action-btn action-btn--gold" onclick="regalarVIP('${m.id}')">🎁 VIP</button>
+            <button class="action-btn action-btn--ghost" onclick="verMiembro('${m.id}','${m._tipo}')">Ver</button>
+            ${esFree
+              ? `<button class="action-btn action-btn--gold" onclick="convertirFreeAVip('${m.id}')">⬆ Activar VIP</button>`
+              : `<button class="action-btn action-btn--gold" onclick="regalarVIP('${m.id}')">🎁 VIP</button>`}
           </td>`}
         </tr>`;
       }).join('')}
@@ -1637,19 +1676,31 @@ let searchMiembros = '';
 PAGES.miembros = function() { renderMiembros(); };
 function renderMiembros() {
   const cont = document.getElementById('content');
-  let lista = STATE.miembros;
-  if (filtroMiembros === 'activos') lista = lista.filter(m => m.estado === 'activo' && new Date(m.vence||0) > new Date());
-  else if (filtroMiembros === 'vencidos') lista = lista.filter(m => new Date(m.vence||0) <= new Date());
+  const todos = todosLosUsuarios();
+  const totalVip = todos.filter(m => m._tipo === 'miembro').length;
+  const totalFree = todos.filter(m => m._tipo === 'free').length;
+  const totalActivos = todos.filter(m => m._tipo === 'miembro' && m.estado === 'activo' && new Date(m.vence||0) > new Date()).length;
+  const totalVencidos = todos.filter(m => m._tipo === 'miembro' && new Date(m.vence||0) <= new Date()).length;
+
+  let lista = todos;
+  if (filtroMiembros === 'free') lista = lista.filter(m => m._tipo === 'free');
+  else if (filtroMiembros === 'vip') lista = lista.filter(m => m._tipo === 'miembro');
+  else if (filtroMiembros === 'activos') lista = lista.filter(m => m._tipo === 'miembro' && m.estado === 'activo' && new Date(m.vence||0) > new Date());
+  else if (filtroMiembros === 'vencidos') lista = lista.filter(m => m._tipo === 'miembro' && new Date(m.vence||0) <= new Date());
   else if (filtroMiembros === 'regalo') lista = lista.filter(m => (m.plan||'').toLowerCase().includes('regalo'));
+
   if (searchMiembros) {
     const q = searchMiembros.toLowerCase();
     lista = lista.filter(m => (m.nombre||'').toLowerCase().includes(q) || (m.email||'').toLowerCase().includes(q) || (m.whatsapp||'').includes(q));
   }
+  // Ordenar: más recientes primero
+  lista.sort((a,b) => new Date(b.fechaRegistro||0) - new Date(a.fechaRegistro||0));
+
   cont.innerHTML = `
     <div class="page-header">
       <div>
-        <h1>👥 Miembros <span style="font-size:.7em;color:var(--text-mute);font-weight:600;">${STATE.miembros.length}</span></h1>
-        <p>Gestiona los socios de Visión Pecuaria</p>
+        <h1>👥 Usuarios <span style="font-size:.7em;color:var(--text-mute);font-weight:600;">${todos.length}</span></h1>
+        <p>${totalVip} VIP · ${totalFree} Free · ${totalActivos} activos</p>
       </div>
       <div class="page-header-actions">
         <button class="topbar-btn" onclick="exportarMiembros()">📥 Exportar CSV</button>
@@ -1662,9 +1713,11 @@ function renderMiembros() {
           <svg class="data-table-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input type="text" placeholder="Buscar por nombre, email o WhatsApp..." value="${escapeHTML(searchMiembros)}" oninput="searchMiembros = this.value; renderMiembros()">
         </div>
-        <button class="filter-chip ${filtroMiembros==='todos'?'active':''}" onclick="filtroMiembros='todos';renderMiembros()">Todos · ${STATE.miembros.length}</button>
-        <button class="filter-chip ${filtroMiembros==='activos'?'active':''}" onclick="filtroMiembros='activos';renderMiembros()">✅ Activos</button>
-        <button class="filter-chip ${filtroMiembros==='vencidos'?'active':''}" onclick="filtroMiembros='vencidos';renderMiembros()">⚠️ Vencidos</button>
+        <button class="filter-chip ${filtroMiembros==='todos'?'active':''}" onclick="filtroMiembros='todos';renderMiembros()">Todos · ${todos.length}</button>
+        <button class="filter-chip ${filtroMiembros==='vip'?'active':''}" onclick="filtroMiembros='vip';renderMiembros()">👑 VIP · ${totalVip}</button>
+        <button class="filter-chip ${filtroMiembros==='free'?'active':''}" onclick="filtroMiembros='free';renderMiembros()">🆓 Free · ${totalFree}</button>
+        <button class="filter-chip ${filtroMiembros==='activos'?'active':''}" onclick="filtroMiembros='activos';renderMiembros()">✅ Activos · ${totalActivos}</button>
+        <button class="filter-chip ${filtroMiembros==='vencidos'?'active':''}" onclick="filtroMiembros='vencidos';renderMiembros()">⚠️ Vencidos · ${totalVencidos}</button>
         <button class="filter-chip ${filtroMiembros==='regalo'?'active':''}" onclick="filtroMiembros='regalo';renderMiembros()">🎁 Regalo</button>
       </div>
       ${renderTablaMiembros(lista, false)}
@@ -1730,33 +1783,119 @@ window.confirmarRegaloVIP = function(id) {
   });
 };
 
-window.verMiembro = function(id) {
-  const m = STATE.miembros.find(x => x.id === id);
+window.verMiembro = function(id, tipo) {
+  let m;
+  if (tipo === 'free') m = STATE.usuariosFree.find(x => x.id === id);
+  else m = STATE.miembros.find(x => x.id === id);
   if (!m) return;
+  const esFree = tipo === 'free';
   abrirModal(`
     <div class="modal-head">
-      <h3>👤 ${escapeHTML(m.nombre||'Miembro')}</h3>
+      <h3>${esFree?'🆓':'👤'} ${escapeHTML(m.nombre||'Usuario')}</h3>
       <button class="modal-close" onclick="cerrarModal()">×</button>
     </div>
     <div class="modal-body">
+      ${esFree ? `<div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.3);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;font-size:.85rem;color:#60a5fa;">🆓 Usuario FREE — solo se registró, no ha pagado membresía</div>` : ''}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
         <div><label style="display:block;font-size:.7rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Email</label><div style="margin-top:4px;font-size:.9rem;">${escapeHTML(m.email||'—')}</div></div>
         <div><label style="display:block;font-size:.7rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">WhatsApp</label><div style="margin-top:4px;font-size:.9rem;">${escapeHTML(m.whatsapp||'—')}</div></div>
-        <div><label style="display:block;font-size:.7rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Plan</label><div style="margin-top:4px;font-size:.9rem;">${escapeHTML(m.plan||'—')}</div></div>
-        <div><label style="display:block;font-size:.7rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Estado</label><div style="margin-top:4px;font-size:.9rem;">${escapeHTML(m.estado||'—')}</div></div>
+        <div><label style="display:block;font-size:.7rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Plan</label><div style="margin-top:4px;font-size:.9rem;">${escapeHTML(m.plan||'Free')}</div></div>
+        <div><label style="display:block;font-size:.7rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Estado</label><div style="margin-top:4px;font-size:.9rem;">${esFree?'🆓 Free':escapeHTML(m.estado||'—')}</div></div>
         <div><label style="display:block;font-size:.7rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Registro</label><div style="margin-top:4px;font-size:.9rem;">${fmtFecha(m.fechaRegistro)}</div></div>
-        <div><label style="display:block;font-size:.7rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Vence</label><div style="margin-top:4px;font-size:.9rem;">${fmtFecha(m.vence)}</div></div>
+        ${!esFree ? `<div><label style="display:block;font-size:.7rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Vence</label><div style="margin-top:4px;font-size:.9rem;">${fmtFecha(m.vence)}</div></div>` : ''}
+        ${m.origen ? `<div><label style="display:block;font-size:.7rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Origen</label><div style="margin-top:4px;font-size:.9rem;">${escapeHTML(m.origen)}</div></div>` : ''}
       </div>
     </div>
     <div class="modal-foot">
-      <button class="action-btn action-btn--danger" onclick="if(confirm('¿Eliminar este miembro?'))eliminarMiembro('${id}')">Eliminar</button>
-      <button class="action-btn action-btn--gold" onclick="cerrarModal();regalarVIP('${id}')">🎁 Regalo VIP</button>
+      <button class="action-btn action-btn--danger" onclick="if(confirm('¿Eliminar este usuario?'))eliminarMiembro('${id}','${tipo||'miembro'}')">Eliminar</button>
+      ${esFree
+        ? `<button class="action-btn action-btn--gold" onclick="cerrarModal();convertirFreeAVip('${id}')">⬆ Activar VIP</button>`
+        : `<button class="action-btn action-btn--gold" onclick="cerrarModal();regalarVIP('${id}')">🎁 Regalo VIP</button>`}
     </div>
   `);
 };
 
-window.eliminarMiembro = function(id) {
-  db.collection('miembros').doc(id).delete().then(() => { cerrarModal(); toast('Miembro eliminado', 'success'); });
+window.eliminarMiembro = function(id, tipo) {
+  const col = tipo === 'free' ? 'usuarios_free' : 'miembros';
+  db.collection(col).doc(id).delete().then(() => { cerrarModal(); toast('Usuario eliminado', 'success'); });
+};
+
+// Convertir un usuario FREE en miembro VIP (lo migra de usuarios_free a miembros)
+window.convertirFreeAVip = function(freeId) {
+  const u = STATE.usuariosFree.find(x => x.id === freeId);
+  if (!u) return;
+  abrirModal(`
+    <div class="modal-head">
+      <h3>⬆ Activar VIP a ${escapeHTML(u.nombre||u.email)}</h3>
+      <button class="modal-close" onclick="cerrarModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--text-soft);margin-bottom:14px;font-size:.88rem;">El usuario pasará de FREE a VIP. Empieza el contador del drip y se le crea su registro como miembro.</p>
+      <div class="field">
+        <label>Plan</label>
+        <select id="cvPlan">
+          <option value="VIP Mensual">VIP Mensual ($200)</option>
+          <option value="VIP Anual">VIP Anual ($1,920)</option>
+          <option value="VIP Regalo">VIP Regalo (gratis)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Días de duración</label>
+        <select id="cvDias">
+          <option value="30" selected>30 días (mensual)</option>
+          <option value="365">365 días (anual)</option>
+          <option value="7">7 días (prueba)</option>
+          <option value="15">15 días</option>
+          <option value="90">90 días</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Monto pagado (MXN)</label>
+        <input type="number" id="cvMonto" value="200">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="action-btn action-btn--ghost" onclick="cerrarModal()">Cancelar</button>
+      <button class="action-btn action-btn--gold" onclick="confirmarConvertirVip('${freeId}')">⬆ Activar VIP</button>
+    </div>
+  `);
+};
+
+window.confirmarConvertirVip = function(freeId) {
+  const u = STATE.usuariosFree.find(x => x.id === freeId);
+  if (!u) return;
+  const plan = document.getElementById('cvPlan').value;
+  const dias = parseInt(document.getElementById('cvDias').value, 10);
+  const monto = parseInt(document.getElementById('cvMonto').value) || 0;
+  const ahora = new Date().toISOString();
+  const vence = new Date(); vence.setDate(vence.getDate() + dias);
+
+  // 1. Crear doc en miembros con el mismo UID que tenía en usuarios_free
+  db.collection('miembros').doc(u.uid || freeId).set({
+    nombre: u.nombre || u.email.split('@')[0],
+    email: u.email,
+    whatsapp: u.whatsapp || '',
+    plan,
+    vence: vence.toISOString(),
+    estado: 'activo',
+    fechaRegistro: u.fechaRegistro?.toDate ? u.fechaRegistro.toDate().toISOString() : (u.fechaRegistro || ahora),
+    fechaUltimaActivacion: ahora,
+    cursosDesbloqueados: [],
+    photoURL: u.photoURL || null,
+    origen: u.origen || 'admin'
+  }).then(() => {
+    // 2. Registrar el pago si hay monto
+    if (monto > 0) {
+      db.collection('pagos').add({ email: u.email, monto, plan, fecha: ahora });
+    }
+    // 3. Borrar de usuarios_free
+    return db.collection('usuarios_free').doc(freeId).delete();
+  }).then(() => {
+    cerrarModal();
+    toast(`✅ ${u.email} es ahora VIP (${dias} días)`, 'success');
+  }).catch(err => {
+    toast('Error: ' + err.message, 'error');
+  });
 };
 
 window.abrirModalNuevoMiembro = function() {
@@ -1801,13 +1940,14 @@ window.guardarMiembro = function() {
 };
 
 window.exportarMiembros = function() {
-  const csv = ['Nombre,Email,WhatsApp,Plan,Estado,Vence']
-    .concat(STATE.miembros.map(m => [m.nombre,m.email,m.whatsapp,m.plan,m.estado,m.vence].map(x=>`"${(x||'').toString().replace(/"/g,'""')}"`).join(',')))
+  const todos = todosLosUsuarios();
+  const csv = ['Tipo,Nombre,Email,WhatsApp,Plan,Estado,Registro,Vence']
+    .concat(todos.map(m => [m._tipo,m.nombre,m.email,m.whatsapp,m.plan,m.estado,m.fechaRegistro,m.vence].map(x=>`"${(x||'').toString().replace(/"/g,'""')}"`).join(',')))
     .join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `miembros-${new Date().toISOString().split('T')[0]}.csv`;
+  a.download = `usuarios-${new Date().toISOString().split('T')[0]}.csv`;
   a.click();
   toast('CSV descargado', 'success');
 };
