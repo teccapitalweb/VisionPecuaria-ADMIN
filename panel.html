@@ -1030,11 +1030,6 @@ input, textarea, select { font-family: inherit; outline: none; }
       <span class="sb-nav-label">Cursos</span>
       <span class="sb-nav-badge" id="badgeCursos" style="display:none">0</span>
     </button>
-    <button class="sb-nav-item" data-page="videos">
-      <span class="sb-nav-icon">🎬</span>
-      <span class="sb-nav-label">Videos</span>
-      <span class="sb-nav-badge" id="badgeVideos" style="display:none">0</span>
-    </button>
     <button class="sb-nav-item" data-page="pdfs">
       <span class="sb-nav-icon">📚</span>
       <span class="sb-nav-label">Biblioteca</span>
@@ -1163,7 +1158,6 @@ const STATE = {
   usuariosFree: [],      // Solo registrados sin pagar
   pagosPendientes: [],
   cursos: [],
-  videos: [],
   pdfs: [],
   webinars: [],
   notificaciones: [],
@@ -1269,7 +1263,6 @@ const PAGE_META = {
   miembros: { title: '👥 Miembros', sub: 'Gestiona los socios de Visión Pecuaria' },
   pendientes: { title: '⏳ Pagos pendientes', sub: 'Aprueba o rechaza accesos solicitados' },
   cursos: { title: '🎓 Cursos', sub: 'Crea, edita y publica cursos del Establo' },
-  videos: { title: '🎬 Videos', sub: 'Webinars y masterclasses para la Cineteca' },
   pdfs: { title: '📚 Biblioteca', sub: 'Manuales, guías y material descargable' },
   webinars: { title: '📡 Sesiones en vivo', sub: 'Programa webinars y eventos en directo' },
   avisos: { title: '📢 Avisos', sub: 'Notificaciones para todos los miembros' },
@@ -1376,12 +1369,6 @@ function suscribirTodo() {
     if (STATE.currentPage === 'cursos') renderCursos();
   }, 'cursos');
 
-  safeSnapshot(db.collection('videos'), snap => {
-    STATE.videos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    actualizarBadges();
-    if (STATE.currentPage === 'videos') renderVideos();
-  }, 'videos');
-
   safeSnapshot(db.collection('pdfs'), snap => {
     STATE.pdfs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     actualizarBadges();
@@ -1429,7 +1416,6 @@ function actualizarBadges() {
     ['badgeMiembros', totalUsuarios],
     ['badgePendientes', STATE.pagosPendientes.length],
     ['badgeCursos', STATE.cursos.length],
-    ['badgeVideos', STATE.videos.length],
     ['badgePdfs', STATE.pdfs.length],
     ['badgeWebinars', STATE.webinars.length]
   ];
@@ -1511,7 +1497,7 @@ function renderDashboard() {
         <div class="kpi-head">
           <div class="kpi-icon">🎓</div>
           <div class="kpi-label">Cursos publicados</div>
-          <span class="kpi-trend kpi-trend--neutral">${STATE.videos.length} videos</span>
+          <span class="kpi-trend kpi-trend--neutral">${STATE.cursos.length} cursos</span>
         </div>
         <div class="kpi-value">${cursosTotal}</div>
         <div class="kpi-detail">${STATE.pdfs.length} PDFs · ${STATE.webinars.length} webinars</div>
@@ -1558,11 +1544,6 @@ function renderDashboard() {
             <div class="qa-card-icon">🎓</div>
             <div class="qa-card-title">Nuevo curso</div>
             <div class="qa-card-desc">Crea un curso del Establo</div>
-          </button>
-          <button class="qa-card" onclick="abrirModalNuevoVideo()">
-            <div class="qa-card-icon">🎬</div>
-            <div class="qa-card-title">Subir video</div>
-            <div class="qa-card-desc">Webinar o masterclass</div>
           </button>
           <button class="qa-card" onclick="abrirModalNuevoAviso()">
             <div class="qa-card-icon">📢</div>
@@ -2311,85 +2292,6 @@ window.eliminarClase = function(cursoId, idx) {
 };
 
 // ═══════════════════════════════════════════════════════════
-// 🎬 VIDEOS
-// ═══════════════════════════════════════════════════════════
-PAGES.videos = function() { renderVideos(); };
-function renderVideos() {
-  const cont = document.getElementById('content');
-  cont.innerHTML = `
-    <div class="page-header">
-      <div><h1>🎬 Videos <span style="font-size:.7em;color:var(--text-mute);font-weight:600;">${STATE.videos.length}</span></h1><p>Webinars y masterclasses</p></div>
-      <div class="page-header-actions">
-        <button class="topbar-btn topbar-btn--primary" onclick="abrirModalNuevoVideo()">+ Subir video</button>
-      </div>
-    </div>
-    ${STATE.videos.length === 0 ? `<div class="block"><div class="empty-state"><div class="empty-state-icon">🎬</div><h3>Sin videos</h3><p>Sube el primer webinar</p></div></div>` : `
-    <div class="cards-grid">
-      ${STATE.videos.map(v => {
-        const yt = ytId(v.url);
-        const thumb = yt ? `https://img.youtube.com/vi/${yt}/hqdefault.jpg` : null;
-        return `<div class="content-card">
-          <div class="content-card-thumb">
-            ${thumb ? `<img src="${thumb}" alt="">` : '<span style="font-size:48px;">🎥</span>'}
-            ${v.duracion ? `<div style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.85);padding:3px 8px;border-radius:6px;font-size:.72rem;font-weight:700;">${escapeHTML(v.duracion)}</div>` : ''}
-          </div>
-          <div class="content-card-body">
-            <div class="content-card-cat">${escapeHTML(v.categoria || 'GENERAL')}</div>
-            <div class="content-card-title">${escapeHTML(v.titulo || 'Sin título')}</div>
-            <div class="content-card-meta">
-              ${v.instructor ? `<span>👤 ${escapeHTML(v.instructor)}</span>` : ''}
-              ${v.mes ? `<span>📅 ${escapeHTML(v.mes)}</span>` : ''}
-            </div>
-            <div class="content-card-actions">
-              ${v.url ? `<a href="${escapeHTML(v.url)}" target="_blank" class="action-btn action-btn--ghost">▶ Ver</a>` : ''}
-              <button class="action-btn action-btn--danger" onclick="eliminarVideo('${v.id}')">🗑</button>
-            </div>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`}
-  `;
-}
-window.abrirModalNuevoVideo = function() {
-  abrirModal(`
-    <div class="modal-head"><h3>+ Subir video</h3><button class="modal-close" onclick="cerrarModal()">×</button></div>
-    <div class="modal-body">
-      <div class="field"><label>Título *</label><input type="text" id="vTitulo" placeholder="Webinar de mastitis bovina"></div>
-      <div class="field"><label>URL YouTube *</label><input type="url" id="vUrl" placeholder="https://youtube.com/watch?v=..."></div>
-      <div class="field-row">
-        <div class="field"><label>Categoría</label><select id="vCategoria"><option>Producción</option><option>Reproducción</option><option>Sanidad</option><option>Nutrición</option><option>Gestión</option><option>General</option></select></div>
-        <div class="field"><label>Duración</label><input type="text" id="vDuracion" placeholder="45 min"></div>
-      </div>
-      <div class="field-row">
-        <div class="field"><label>Instructor</label><input type="text" id="vInstructor" placeholder="MVZ. Nombre"></div>
-        <div class="field"><label>Mes</label><input type="text" id="vMes" placeholder="Mayo 2026"></div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="action-btn action-btn--ghost" onclick="cerrarModal()">Cancelar</button>
-      <button class="action-btn action-btn--gold" onclick="guardarVideo()">Guardar</button>
-    </div>
-  `);
-};
-window.guardarVideo = function() {
-  const datos = {
-    titulo: document.getElementById('vTitulo').value.trim(),
-    url: document.getElementById('vUrl').value.trim(),
-    categoria: document.getElementById('vCategoria').value,
-    duracion: document.getElementById('vDuracion').value.trim(),
-    instructor: document.getElementById('vInstructor').value.trim(),
-    mes: document.getElementById('vMes').value.trim(),
-    fecha: new Date().toISOString()
-  };
-  if (!datos.titulo || !datos.url) { toast('Título y URL obligatorios', 'error'); return; }
-  db.collection('videos').add(datos).then(() => { cerrarModal(); toast('Video agregado', 'success'); });
-};
-window.eliminarVideo = function(id) {
-  if (!confirm('¿Eliminar este video?')) return;
-  db.collection('videos').doc(id).delete().then(() => toast('Video eliminado', 'success'));
-};
-
-// ═══════════════════════════════════════════════════════════
 // 📚 PDFs
 // ═══════════════════════════════════════════════════════════
 PAGES.pdfs = function() { renderPdfs(); };
@@ -2801,7 +2703,6 @@ const CMDK_ACTIONS = [
   { icon: '👥', text: 'Ver miembros', action: () => navigateTo('miembros') },
   { icon: '⏳', text: 'Pagos pendientes', action: () => navigateTo('pendientes') },
   { icon: '🎓', text: 'Cursos del Establo', action: () => navigateTo('cursos') },
-  { icon: '🎬', text: 'Videos / Cineteca', action: () => navigateTo('videos') },
   { icon: '📚', text: 'Biblioteca PDFs', action: () => navigateTo('pdfs') },
   { icon: '📡', text: 'Webinars en vivo', action: () => navigateTo('webinars') },
   { icon: '📢', text: 'Avisos', action: () => navigateTo('avisos') },
@@ -2810,7 +2711,6 @@ const CMDK_ACTIONS = [
   { icon: '💰', text: 'Pagos', action: () => navigateTo('pagos') },
   { icon: '⚙️', text: 'Configuración', action: () => navigateTo('config') },
   { icon: '➕', text: 'Crear nuevo curso', action: () => { navigateTo('cursos'); setTimeout(abrirModalNuevoCurso, 300); } },
-  { icon: '➕', text: 'Subir nuevo video', action: () => { navigateTo('videos'); setTimeout(abrirModalNuevoVideo, 300); } },
   { icon: '➕', text: 'Subir nuevo PDF', action: () => { navigateTo('pdfs'); setTimeout(abrirModalNuevoPdf, 300); } },
   { icon: '➕', text: 'Programar webinar', action: () => { navigateTo('webinars'); setTimeout(abrirModalNuevoWebinar, 300); } },
   { icon: '➕', text: 'Enviar nuevo aviso', action: () => { navigateTo('avisos'); setTimeout(abrirModalNuevoAviso, 300); } },
