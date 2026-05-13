@@ -843,7 +843,234 @@ input, textarea, select { font-family: inherit; outline: none; }
   padding: 8px;
 }
 .modal-body input[type="number"]::-webkit-inner-spin-button { opacity: .5; }
-.modal-body input[type="date"] { color-scheme: dark; }
+
+/* ═══════════ Input date — premium look ═══════════ */
+.modal-body input[type="date"] {
+  color-scheme: dark;
+  font-weight: 700;
+  letter-spacing: .3px;
+  cursor: pointer;
+  padding-right: 38px;
+  position: relative;
+}
+.modal-body input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(.65) sepia(1) saturate(5) hue-rotate(20deg) brightness(1.1);
+  cursor: pointer;
+  opacity: .75;
+  transition: opacity .2s, transform .2s;
+  width: 22px; height: 22px;
+}
+.modal-body input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+.modal-body input[type="date"]:focus::-webkit-calendar-picker-indicator { opacity: 1; }
+
+/* Custom date picker */
+.dp-wrap { position: relative; }
+.dp-input {
+  width: 100%;
+  padding: 11px 42px 11px 14px;
+  background: rgba(0,0,0,.35);
+  border: 1.5px solid rgba(255,255,255,.12);
+  border-radius: var(--r-sm);
+  color: #fff;
+  font: 700 .92rem 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: .3px;
+  cursor: pointer;
+  transition: all .2s;
+}
+.dp-input:hover {
+  border-color: rgba(212,160,23,.4);
+  background: rgba(0,0,0,.45);
+}
+.dp-input.dp-focused {
+  border-color: var(--gold);
+  background: rgba(0,0,0,.5);
+  box-shadow: 0 0 0 3px rgba(212,160,23,.15);
+}
+.dp-input.dp-empty { color: rgba(255,255,255,.35); font-weight: 500; }
+
+.dp-icon {
+  position: absolute;
+  right: 12px; top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--gold);
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.4));
+  transition: transform .2s;
+}
+.dp-wrap.dp-open .dp-icon { transform: translateY(-50%) rotate(180deg); }
+
+.dp-popup {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 320px;
+  background: linear-gradient(180deg, #0e2618, #051a0d);
+  border: 1px solid rgba(212,160,23,.3);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow:
+    0 20px 50px rgba(0,0,0,.55),
+    0 0 60px rgba(212,160,23,.12),
+    inset 0 1px 0 rgba(255,255,255,.06);
+  z-index: 100;
+  opacity: 0;
+  transform: translateY(-8px) scale(.96);
+  pointer-events: none;
+  transition: all .22s cubic-bezier(.2,.8,.2,1);
+}
+.dp-popup::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 16px; right: 16px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  opacity: .6;
+}
+.dp-wrap.dp-open .dp-popup {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.dp-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+  padding: 0 4px;
+}
+.dp-nav {
+  width: 32px; height: 32px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+  color: rgba(255,255,255,.75);
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font: 700 14px/1 sans-serif;
+  transition: all .2s;
+}
+.dp-nav:hover {
+  background: rgba(212,160,23,.15);
+  border-color: rgba(212,160,23,.35);
+  color: var(--gold-light);
+}
+.dp-title {
+  font: 800 .95rem 'Plus Jakarta Sans', sans-serif;
+  color: #fff;
+  letter-spacing: -.3px;
+  text-transform: capitalize;
+  flex: 1;
+  text-align: center;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: background .2s;
+}
+.dp-title:hover { background: rgba(255,255,255,.05); }
+
+.dp-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 6px;
+}
+.dp-week-day {
+  font: 800 .6rem 'Montserrat', sans-serif;
+  letter-spacing: 1px;
+  color: rgba(212,160,23,.7);
+  text-transform: uppercase;
+  text-align: center;
+  padding: 6px 0;
+}
+
+.dp-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.dp-day {
+  height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  font: 600 .85rem 'Plus Jakarta Sans', sans-serif;
+  color: rgba(255,255,255,.85);
+  cursor: pointer;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  transition: all .15s;
+  user-select: none;
+}
+.dp-day:hover:not(.dp-day-disabled):not(.dp-day-empty) {
+  background: rgba(212,160,23,.12);
+  color: #fff;
+}
+.dp-day.dp-day-empty { cursor: default; color: transparent; }
+.dp-day.dp-day-other { color: rgba(255,255,255,.25); }
+.dp-day.dp-day-today {
+  border-color: rgba(212,160,23,.4);
+  color: var(--gold-light);
+  font-weight: 800;
+}
+.dp-day.dp-day-selected {
+  background: linear-gradient(135deg, var(--gold), #f5d77a);
+  color: #0a2540;
+  font-weight: 900;
+  box-shadow: 0 4px 12px rgba(212,160,23,.4);
+}
+.dp-day.dp-day-selected:hover {
+  background: linear-gradient(135deg, var(--gold), #f5d77a);
+  color: #0a2540;
+}
+
+.dp-foot {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+.dp-btn-action {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,.6);
+  font: 700 .78rem 'Plus Jakarta Sans', sans-serif;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: all .15s;
+}
+.dp-btn-action:hover { color: #fff; background: rgba(255,255,255,.05); }
+.dp-btn-today { color: var(--gold-light); }
+.dp-btn-today:hover { color: var(--gold); background: rgba(212,160,23,.1); }
+
+/* Grid de meses (vista alternativa) */
+.dp-months-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.dp-month-btn {
+  padding: 12px 6px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 8px;
+  color: rgba(255,255,255,.8);
+  font: 700 .8rem 'Plus Jakarta Sans', sans-serif;
+  cursor: pointer;
+  transition: all .15s;
+}
+.dp-month-btn:hover {
+  background: rgba(212,160,23,.12);
+  border-color: rgba(212,160,23,.3);
+  color: #fff;
+}
+.dp-month-btn.dp-month-current {
+  background: linear-gradient(135deg, var(--gold), #f5d77a);
+  color: #0a2540;
+  font-weight: 900;
+  border-color: var(--gold);
+}
 .modal-body textarea { resize: vertical; min-height: 80px; }
 .modal-body small.help {
   display: block;
@@ -1893,7 +2120,17 @@ window.abrirModalNuevoMiembro = function() {
           <option>VIP Regalo</option>
           <option>Free</option>
         </select></div>
-        <div class="field"><label>Vence</label><input type="date" id="mVence"></div>
+        <div class="field"><label>Vence</label>
+          <div class="dp-wrap" id="mVencePicker">
+            <div class="dp-input dp-empty" id="mVenceInput">Selecciona fecha</div>
+            <span class="dp-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+            </span>
+            <input type="hidden" id="mVence">
+          </div>
+        </div>
       </div>
     </div>
     <div class="modal-foot">
@@ -2400,7 +2637,17 @@ window.abrirModalNuevoWebinar = function() {
         <div class="field"><label>Rol</label><input type="text" id="wRol" placeholder="Especialista"></div>
       </div>
       <div class="field-row">
-        <div class="field"><label>Fecha *</label><input type="date" id="wFecha"></div>
+        <div class="field"><label>Fecha *</label>
+          <div class="dp-wrap" id="wFechaPicker">
+            <div class="dp-input dp-empty" id="wFechaInput">Selecciona fecha</div>
+            <span class="dp-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+            </span>
+            <input type="hidden" id="wFecha">
+          </div>
+        </div>
         <div class="field"><label>Hora</label><input type="text" id="wHora" placeholder="7:00 PM"></div>
       </div>
       <div class="field"><label>Duración</label><input type="text" id="wDuracion" placeholder="60 min"></div>
@@ -2755,6 +3002,234 @@ document.addEventListener('keydown', e => {
   }
 });
 document.getElementById('cmdkInput').addEventListener('input', e => pintarCmdK(e.target.value));
+
+// ═══════════════════════════════════════════════════════════
+// 📅 DATE PICKER CUSTOM (estilo Visión Pecuaria)
+// Usado donde hay .dp-wrap con un input type=hidden adentro
+// ═══════════════════════════════════════════════════════════
+const DP_MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DP_MESES_CORTO = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const DP_DIAS = ['Do','Lu','Ma','Mi','Ju','Vi','Sa'];
+const DP_state = {}; // por id del wrap: { year, month, view: 'days'|'months' }
+
+function dpInit(wrapId) {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap || wrap.__dpInit) return;
+  wrap.__dpInit = true;
+  const input = wrap.querySelector('.dp-input');
+  const hidden = wrap.querySelector('input[type="hidden"]');
+  // Inicializa estado en mes actual
+  const hoy = new Date();
+  DP_state[wrapId] = {
+    year: hoy.getFullYear(),
+    month: hoy.getMonth(),
+    view: 'days',
+    selected: hidden.value ? new Date(hidden.value + 'T00:00:00') : null
+  };
+  input.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dpToggle(wrapId);
+  });
+  document.addEventListener('click', (e) => {
+    if (!wrap.contains(e.target)) dpClose(wrapId);
+  });
+  // Render inicial si ya tiene valor
+  if (hidden.value) dpSetValue(wrapId, hidden.value);
+}
+
+function dpToggle(wrapId) {
+  const wrap = document.getElementById(wrapId);
+  if (wrap.classList.contains('dp-open')) dpClose(wrapId);
+  else dpOpen(wrapId);
+}
+
+function dpOpen(wrapId) {
+  // Cerrar otros pickers abiertos
+  document.querySelectorAll('.dp-wrap.dp-open').forEach(w => w.classList.remove('dp-open'));
+  document.querySelectorAll('.dp-wrap .dp-input').forEach(i => i.classList.remove('dp-focused'));
+  const wrap = document.getElementById(wrapId);
+  const input = wrap.querySelector('.dp-input');
+  // Crear popup si no existe
+  let popup = wrap.querySelector('.dp-popup');
+  if (!popup) {
+    popup = document.createElement('div');
+    popup.className = 'dp-popup';
+    wrap.appendChild(popup);
+  }
+  wrap.classList.add('dp-open');
+  input.classList.add('dp-focused');
+  dpRender(wrapId);
+}
+
+function dpClose(wrapId) {
+  const wrap = document.getElementById(wrapId);
+  const input = wrap.querySelector('.dp-input');
+  wrap.classList.remove('dp-open');
+  input.classList.remove('dp-focused');
+  const st = DP_state[wrapId];
+  if (st) st.view = 'days';
+}
+
+function dpRender(wrapId) {
+  const wrap = document.getElementById(wrapId);
+  const popup = wrap.querySelector('.dp-popup');
+  const st = DP_state[wrapId];
+  if (!popup || !st) return;
+  if (st.view === 'months') {
+    popup.innerHTML = dpRenderMonths(wrapId);
+  } else {
+    popup.innerHTML = dpRenderDays(wrapId);
+  }
+}
+
+function dpRenderDays(wrapId) {
+  const st = DP_state[wrapId];
+  const primerDia = new Date(st.year, st.month, 1).getDay();
+  const diasMes = new Date(st.year, st.month + 1, 0).getDate();
+  const hoy = new Date();
+  hoy.setHours(0,0,0,0);
+
+  let dias = '';
+  // Espacios vacíos antes del día 1
+  for (let i = 0; i < primerDia; i++) {
+    dias += `<div class="dp-day dp-day-empty"></div>`;
+  }
+  for (let d = 1; d <= diasMes; d++) {
+    const fecha = new Date(st.year, st.month, d);
+    fecha.setHours(0,0,0,0);
+    const esHoy = fecha.getTime() === hoy.getTime();
+    const esSel = st.selected && fecha.getTime() === new Date(st.selected.getFullYear(), st.selected.getMonth(), st.selected.getDate()).getTime();
+    const cls = ['dp-day'];
+    if (esHoy) cls.push('dp-day-today');
+    if (esSel) cls.push('dp-day-selected');
+    dias += `<div class="${cls.join(' ')}" onclick="dpSelectDay('${wrapId}', ${d})">${d}</div>`;
+  }
+
+  return `
+    <div class="dp-head">
+      <button type="button" class="dp-nav" onclick="dpChangeMonth('${wrapId}', -1)" title="Mes anterior">‹</button>
+      <div class="dp-title" onclick="dpToggleView('${wrapId}')">${DP_MESES[st.month]} ${st.year}</div>
+      <button type="button" class="dp-nav" onclick="dpChangeMonth('${wrapId}', 1)" title="Siguiente mes">›</button>
+    </div>
+    <div class="dp-week">
+      ${DP_DIAS.map(d => `<div class="dp-week-day">${d}</div>`).join('')}
+    </div>
+    <div class="dp-grid">${dias}</div>
+    <div class="dp-foot">
+      <button type="button" class="dp-btn-action" onclick="dpClear('${wrapId}')">Limpiar</button>
+      <button type="button" class="dp-btn-action dp-btn-today" onclick="dpToday('${wrapId}')">Hoy</button>
+    </div>
+  `;
+}
+
+function dpRenderMonths(wrapId) {
+  const st = DP_state[wrapId];
+  return `
+    <div class="dp-head">
+      <button type="button" class="dp-nav" onclick="dpChangeYear('${wrapId}', -1)">‹</button>
+      <div class="dp-title">${st.year}</div>
+      <button type="button" class="dp-nav" onclick="dpChangeYear('${wrapId}', 1)">›</button>
+    </div>
+    <div class="dp-months-grid">
+      ${DP_MESES_CORTO.map((m, i) => `
+        <button type="button" class="dp-month-btn ${i === st.month ? 'dp-month-current' : ''}" onclick="dpSelectMonth('${wrapId}', ${i})">${m}</button>
+      `).join('')}
+    </div>
+  `;
+}
+
+window.dpChangeMonth = function(wrapId, delta) {
+  const st = DP_state[wrapId];
+  st.month += delta;
+  if (st.month < 0) { st.month = 11; st.year--; }
+  else if (st.month > 11) { st.month = 0; st.year++; }
+  dpRender(wrapId);
+};
+window.dpChangeYear = function(wrapId, delta) {
+  DP_state[wrapId].year += delta;
+  dpRender(wrapId);
+};
+window.dpToggleView = function(wrapId) {
+  const st = DP_state[wrapId];
+  st.view = st.view === 'days' ? 'months' : 'days';
+  dpRender(wrapId);
+};
+window.dpSelectMonth = function(wrapId, idx) {
+  const st = DP_state[wrapId];
+  st.month = idx;
+  st.view = 'days';
+  dpRender(wrapId);
+};
+window.dpSelectDay = function(wrapId, day) {
+  const st = DP_state[wrapId];
+  const fecha = new Date(st.year, st.month, day);
+  st.selected = fecha;
+  dpUpdateInput(wrapId);
+  dpRender(wrapId);
+  setTimeout(() => dpClose(wrapId), 150);
+};
+window.dpToday = function(wrapId) {
+  const hoy = new Date();
+  const st = DP_state[wrapId];
+  st.year = hoy.getFullYear();
+  st.month = hoy.getMonth();
+  st.selected = hoy;
+  dpUpdateInput(wrapId);
+  dpRender(wrapId);
+  setTimeout(() => dpClose(wrapId), 150);
+};
+window.dpClear = function(wrapId) {
+  const st = DP_state[wrapId];
+  st.selected = null;
+  dpUpdateInput(wrapId);
+  dpRender(wrapId);
+};
+
+function dpUpdateInput(wrapId) {
+  const wrap = document.getElementById(wrapId);
+  const input = wrap.querySelector('.dp-input');
+  const hidden = wrap.querySelector('input[type="hidden"]');
+  const st = DP_state[wrapId];
+  if (st.selected) {
+    const y = st.selected.getFullYear();
+    const m = String(st.selected.getMonth() + 1).padStart(2, '0');
+    const d = String(st.selected.getDate()).padStart(2, '0');
+    hidden.value = `${y}-${m}-${d}`;
+    const fmt = st.selected.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    input.textContent = fmt.charAt(0).toUpperCase() + fmt.slice(1);
+    input.classList.remove('dp-empty');
+  } else {
+    hidden.value = '';
+    input.textContent = 'Selecciona fecha';
+    input.classList.add('dp-empty');
+  }
+}
+
+function dpSetValue(wrapId, isoDate) {
+  const st = DP_state[wrapId];
+  if (!st) return;
+  if (!isoDate) {
+    st.selected = null;
+  } else {
+    const d = new Date(isoDate + 'T00:00:00');
+    st.selected = d;
+    st.year = d.getFullYear();
+    st.month = d.getMonth();
+  }
+  dpUpdateInput(wrapId);
+}
+
+// Hook: inicializar cuando se abre el modal (porque los pickers viven dentro)
+const _origAbrirModal = window.abrirModal;
+window.abrirModal = function(html) {
+  if (_origAbrirModal) _origAbrirModal(html);
+  // Buscar todos los pickers en el modal recién abierto e inicializarlos
+  setTimeout(() => {
+    document.querySelectorAll('.dp-wrap').forEach(w => {
+      if (w.id) dpInit(w.id);
+    });
+  }, 50);
+};
 </script>
 
 </body>
