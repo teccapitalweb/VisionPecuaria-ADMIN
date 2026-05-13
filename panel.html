@@ -2403,10 +2403,7 @@ window.abrirModalNuevoWebinar = function() {
         <div class="field"><label>Fecha *</label><input type="date" id="wFecha"></div>
         <div class="field"><label>Hora</label><input type="text" id="wHora" placeholder="7:00 PM"></div>
       </div>
-      <div class="field-row">
-        <div class="field"><label>Duración</label><input type="text" id="wDuracion" placeholder="60 min"></div>
-        <div class="field"><label>Plataforma</label><input type="text" id="wPlataforma" placeholder="Zoom"></div>
-      </div>
+      <div class="field"><label>Duración</label><input type="text" id="wDuracion" placeholder="60 min"></div>
       <div class="field"><label>Link de la sesión</label><input type="url" id="wLink" placeholder="https://zoom.us/j/..."></div>
       <div class="field"><label>Link de grabación (cuando termine)</label><input type="url" id="wGrabacion" placeholder="https://..."></div>
     </div>
@@ -2425,7 +2422,6 @@ window.guardarWebinar = function() {
     fecha: fecha ? new Date(fecha).toISOString() : null,
     hora: document.getElementById('wHora').value.trim(),
     duracion: document.getElementById('wDuracion').value.trim(),
-    plataforma: document.getElementById('wPlataforma').value.trim(),
     link: document.getElementById('wLink').value.trim(),
     grabacion: document.getElementById('wGrabacion').value.trim()
   };
