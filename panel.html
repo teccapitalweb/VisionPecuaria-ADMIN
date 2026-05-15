@@ -843,234 +843,7 @@ input, textarea, select { font-family: inherit; outline: none; }
   padding: 8px;
 }
 .modal-body input[type="number"]::-webkit-inner-spin-button { opacity: .5; }
-
-/* ═══════════ Input date — premium look ═══════════ */
-.modal-body input[type="date"] {
-  color-scheme: dark;
-  font-weight: 700;
-  letter-spacing: .3px;
-  cursor: pointer;
-  padding-right: 38px;
-  position: relative;
-}
-.modal-body input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(.65) sepia(1) saturate(5) hue-rotate(20deg) brightness(1.1);
-  cursor: pointer;
-  opacity: .75;
-  transition: opacity .2s, transform .2s;
-  width: 22px; height: 22px;
-}
-.modal-body input[type="date"]::-webkit-calendar-picker-indicator:hover {
-  opacity: 1;
-  transform: scale(1.1);
-}
-.modal-body input[type="date"]:focus::-webkit-calendar-picker-indicator { opacity: 1; }
-
-/* Custom date picker */
-.dp-wrap { position: relative; }
-.dp-input {
-  width: 100%;
-  padding: 11px 42px 11px 14px;
-  background: rgba(0,0,0,.35);
-  border: 1.5px solid rgba(255,255,255,.12);
-  border-radius: var(--r-sm);
-  color: #fff;
-  font: 700 .92rem 'Plus Jakarta Sans', sans-serif;
-  letter-spacing: .3px;
-  cursor: pointer;
-  transition: all .2s;
-}
-.dp-input:hover {
-  border-color: rgba(212,160,23,.4);
-  background: rgba(0,0,0,.45);
-}
-.dp-input.dp-focused {
-  border-color: var(--gold);
-  background: rgba(0,0,0,.5);
-  box-shadow: 0 0 0 3px rgba(212,160,23,.15);
-}
-.dp-input.dp-empty { color: rgba(255,255,255,.35); font-weight: 500; }
-
-.dp-icon {
-  position: absolute;
-  right: 12px; top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  color: var(--gold);
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,.4));
-  transition: transform .2s;
-}
-.dp-wrap.dp-open .dp-icon { transform: translateY(-50%) rotate(180deg); }
-
-.dp-popup {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  width: 320px;
-  background: linear-gradient(180deg, #0e2618, #051a0d);
-  border: 1px solid rgba(212,160,23,.3);
-  border-radius: 14px;
-  padding: 16px;
-  box-shadow:
-    0 20px 50px rgba(0,0,0,.55),
-    0 0 60px rgba(212,160,23,.12),
-    inset 0 1px 0 rgba(255,255,255,.06);
-  z-index: 100;
-  opacity: 0;
-  transform: translateY(-8px) scale(.96);
-  pointer-events: none;
-  transition: all .22s cubic-bezier(.2,.8,.2,1);
-}
-.dp-popup::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 16px; right: 16px;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--gold), transparent);
-  opacity: .6;
-}
-.dp-wrap.dp-open .dp-popup {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  pointer-events: auto;
-}
-
-.dp-head {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 14px;
-  padding: 0 4px;
-}
-.dp-nav {
-  width: 32px; height: 32px;
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.08);
-  color: rgba(255,255,255,.75);
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  font: 700 14px/1 sans-serif;
-  transition: all .2s;
-}
-.dp-nav:hover {
-  background: rgba(212,160,23,.15);
-  border-color: rgba(212,160,23,.35);
-  color: var(--gold-light);
-}
-.dp-title {
-  font: 800 .95rem 'Plus Jakarta Sans', sans-serif;
-  color: #fff;
-  letter-spacing: -.3px;
-  text-transform: capitalize;
-  flex: 1;
-  text-align: center;
-  cursor: pointer;
-  padding: 6px 10px;
-  border-radius: 8px;
-  transition: background .2s;
-}
-.dp-title:hover { background: rgba(255,255,255,.05); }
-
-.dp-week {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
-  margin-bottom: 6px;
-}
-.dp-week-day {
-  font: 800 .6rem 'Montserrat', sans-serif;
-  letter-spacing: 1px;
-  color: rgba(212,160,23,.7);
-  text-transform: uppercase;
-  text-align: center;
-  padding: 6px 0;
-}
-
-.dp-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
-}
-.dp-day {
-  height: 36px;
-  display: flex; align-items: center; justify-content: center;
-  font: 600 .85rem 'Plus Jakarta Sans', sans-serif;
-  color: rgba(255,255,255,.85);
-  cursor: pointer;
-  border-radius: 8px;
-  background: transparent;
-  border: 1px solid transparent;
-  transition: all .15s;
-  user-select: none;
-}
-.dp-day:hover:not(.dp-day-disabled):not(.dp-day-empty) {
-  background: rgba(212,160,23,.12);
-  color: #fff;
-}
-.dp-day.dp-day-empty { cursor: default; color: transparent; }
-.dp-day.dp-day-other { color: rgba(255,255,255,.25); }
-.dp-day.dp-day-today {
-  border-color: rgba(212,160,23,.4);
-  color: var(--gold-light);
-  font-weight: 800;
-}
-.dp-day.dp-day-selected {
-  background: linear-gradient(135deg, var(--gold), #f5d77a);
-  color: #0a2540;
-  font-weight: 900;
-  box-shadow: 0 4px 12px rgba(212,160,23,.4);
-}
-.dp-day.dp-day-selected:hover {
-  background: linear-gradient(135deg, var(--gold), #f5d77a);
-  color: #0a2540;
-}
-
-.dp-foot {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255,255,255,.06);
-}
-.dp-btn-action {
-  background: transparent;
-  border: none;
-  color: rgba(255,255,255,.6);
-  font: 700 .78rem 'Plus Jakarta Sans', sans-serif;
-  cursor: pointer;
-  padding: 6px 10px;
-  border-radius: 6px;
-  transition: all .15s;
-}
-.dp-btn-action:hover { color: #fff; background: rgba(255,255,255,.05); }
-.dp-btn-today { color: var(--gold-light); }
-.dp-btn-today:hover { color: var(--gold); background: rgba(212,160,23,.1); }
-
-/* Grid de meses (vista alternativa) */
-.dp-months-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-}
-.dp-month-btn {
-  padding: 12px 6px;
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: 8px;
-  color: rgba(255,255,255,.8);
-  font: 700 .8rem 'Plus Jakarta Sans', sans-serif;
-  cursor: pointer;
-  transition: all .15s;
-}
-.dp-month-btn:hover {
-  background: rgba(212,160,23,.12);
-  border-color: rgba(212,160,23,.3);
-  color: #fff;
-}
-.dp-month-btn.dp-month-current {
-  background: linear-gradient(135deg, var(--gold), #f5d77a);
-  color: #0a2540;
-  font-weight: 900;
-  border-color: var(--gold);
-}
+.modal-body input[type="date"] { color-scheme: dark; }
 .modal-body textarea { resize: vertical; min-height: 80px; }
 .modal-body small.help {
   display: block;
@@ -1257,6 +1030,11 @@ input, textarea, select { font-family: inherit; outline: none; }
       <span class="sb-nav-label">Cursos</span>
       <span class="sb-nav-badge" id="badgeCursos" style="display:none">0</span>
     </button>
+    <button class="sb-nav-item" data-page="videos">
+      <span class="sb-nav-icon">🎬</span>
+      <span class="sb-nav-label">Videos</span>
+      <span class="sb-nav-badge" id="badgeVideos" style="display:none">0</span>
+    </button>
     <button class="sb-nav-item" data-page="pdfs">
       <span class="sb-nav-icon">📚</span>
       <span class="sb-nav-label">Biblioteca</span>
@@ -1385,6 +1163,7 @@ const STATE = {
   usuariosFree: [],      // Solo registrados sin pagar
   pagosPendientes: [],
   cursos: [],
+  videos: [],
   pdfs: [],
   webinars: [],
   notificaciones: [],
@@ -1490,6 +1269,7 @@ const PAGE_META = {
   miembros: { title: '👥 Miembros', sub: 'Gestiona los socios de Visión Pecuaria' },
   pendientes: { title: '⏳ Pagos pendientes', sub: 'Aprueba o rechaza accesos solicitados' },
   cursos: { title: '🎓 Cursos', sub: 'Crea, edita y publica cursos del Establo' },
+  videos: { title: '🎬 Videos', sub: 'Webinars y masterclasses para la Cineteca' },
   pdfs: { title: '📚 Biblioteca', sub: 'Manuales, guías y material descargable' },
   webinars: { title: '📡 Sesiones en vivo', sub: 'Programa webinars y eventos en directo' },
   avisos: { title: '📢 Avisos', sub: 'Notificaciones para todos los miembros' },
@@ -1596,6 +1376,12 @@ function suscribirTodo() {
     if (STATE.currentPage === 'cursos') renderCursos();
   }, 'cursos');
 
+  safeSnapshot(db.collection('videos'), snap => {
+    STATE.videos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    actualizarBadges();
+    if (STATE.currentPage === 'videos') renderVideos();
+  }, 'videos');
+
   safeSnapshot(db.collection('pdfs'), snap => {
     STATE.pdfs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     actualizarBadges();
@@ -1643,6 +1429,7 @@ function actualizarBadges() {
     ['badgeMiembros', totalUsuarios],
     ['badgePendientes', STATE.pagosPendientes.length],
     ['badgeCursos', STATE.cursos.length],
+    ['badgeVideos', STATE.videos.length],
     ['badgePdfs', STATE.pdfs.length],
     ['badgeWebinars', STATE.webinars.length]
   ];
@@ -1724,7 +1511,7 @@ function renderDashboard() {
         <div class="kpi-head">
           <div class="kpi-icon">🎓</div>
           <div class="kpi-label">Cursos publicados</div>
-          <span class="kpi-trend kpi-trend--neutral">${STATE.cursos.length} cursos</span>
+          <span class="kpi-trend kpi-trend--neutral">${STATE.videos.length} videos</span>
         </div>
         <div class="kpi-value">${cursosTotal}</div>
         <div class="kpi-detail">${STATE.pdfs.length} PDFs · ${STATE.webinars.length} webinars</div>
@@ -1771,6 +1558,11 @@ function renderDashboard() {
             <div class="qa-card-icon">🎓</div>
             <div class="qa-card-title">Nuevo curso</div>
             <div class="qa-card-desc">Crea un curso del Establo</div>
+          </button>
+          <button class="qa-card" onclick="abrirModalNuevoVideo()">
+            <div class="qa-card-icon">🎬</div>
+            <div class="qa-card-title">Subir video</div>
+            <div class="qa-card-desc">Webinar o masterclass</div>
           </button>
           <button class="qa-card" onclick="abrirModalNuevoAviso()">
             <div class="qa-card-icon">📢</div>
@@ -2120,17 +1912,7 @@ window.abrirModalNuevoMiembro = function() {
           <option>VIP Regalo</option>
           <option>Free</option>
         </select></div>
-        <div class="field"><label>Vence</label>
-          <div class="dp-wrap" id="mVencePicker">
-            <div class="dp-input dp-empty" id="mVenceInput">Selecciona fecha</div>
-            <span class="dp-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-              </svg>
-            </span>
-            <input type="hidden" id="mVence">
-          </div>
-        </div>
+        <div class="field"><label>Vence</label><input type="date" id="mVence"></div>
       </div>
     </div>
     <div class="modal-foot">
@@ -2529,6 +2311,85 @@ window.eliminarClase = function(cursoId, idx) {
 };
 
 // ═══════════════════════════════════════════════════════════
+// 🎬 VIDEOS
+// ═══════════════════════════════════════════════════════════
+PAGES.videos = function() { renderVideos(); };
+function renderVideos() {
+  const cont = document.getElementById('content');
+  cont.innerHTML = `
+    <div class="page-header">
+      <div><h1>🎬 Videos <span style="font-size:.7em;color:var(--text-mute);font-weight:600;">${STATE.videos.length}</span></h1><p>Webinars y masterclasses</p></div>
+      <div class="page-header-actions">
+        <button class="topbar-btn topbar-btn--primary" onclick="abrirModalNuevoVideo()">+ Subir video</button>
+      </div>
+    </div>
+    ${STATE.videos.length === 0 ? `<div class="block"><div class="empty-state"><div class="empty-state-icon">🎬</div><h3>Sin videos</h3><p>Sube el primer webinar</p></div></div>` : `
+    <div class="cards-grid">
+      ${STATE.videos.map(v => {
+        const yt = ytId(v.url);
+        const thumb = yt ? `https://img.youtube.com/vi/${yt}/hqdefault.jpg` : null;
+        return `<div class="content-card">
+          <div class="content-card-thumb">
+            ${thumb ? `<img src="${thumb}" alt="">` : '<span style="font-size:48px;">🎥</span>'}
+            ${v.duracion ? `<div style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.85);padding:3px 8px;border-radius:6px;font-size:.72rem;font-weight:700;">${escapeHTML(v.duracion)}</div>` : ''}
+          </div>
+          <div class="content-card-body">
+            <div class="content-card-cat">${escapeHTML(v.categoria || 'GENERAL')}</div>
+            <div class="content-card-title">${escapeHTML(v.titulo || 'Sin título')}</div>
+            <div class="content-card-meta">
+              ${v.instructor ? `<span>👤 ${escapeHTML(v.instructor)}</span>` : ''}
+              ${v.mes ? `<span>📅 ${escapeHTML(v.mes)}</span>` : ''}
+            </div>
+            <div class="content-card-actions">
+              ${v.url ? `<a href="${escapeHTML(v.url)}" target="_blank" class="action-btn action-btn--ghost">▶ Ver</a>` : ''}
+              <button class="action-btn action-btn--danger" onclick="eliminarVideo('${v.id}')">🗑</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`}
+  `;
+}
+window.abrirModalNuevoVideo = function() {
+  abrirModal(`
+    <div class="modal-head"><h3>+ Subir video</h3><button class="modal-close" onclick="cerrarModal()">×</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Título *</label><input type="text" id="vTitulo" placeholder="Webinar de mastitis bovina"></div>
+      <div class="field"><label>URL YouTube *</label><input type="url" id="vUrl" placeholder="https://youtube.com/watch?v=..."></div>
+      <div class="field-row">
+        <div class="field"><label>Categoría</label><select id="vCategoria"><option>Producción</option><option>Reproducción</option><option>Sanidad</option><option>Nutrición</option><option>Gestión</option><option>General</option></select></div>
+        <div class="field"><label>Duración</label><input type="text" id="vDuracion" placeholder="45 min"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Instructor</label><input type="text" id="vInstructor" placeholder="MVZ. Nombre"></div>
+        <div class="field"><label>Mes</label><input type="text" id="vMes" placeholder="Mayo 2026"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="action-btn action-btn--ghost" onclick="cerrarModal()">Cancelar</button>
+      <button class="action-btn action-btn--gold" onclick="guardarVideo()">Guardar</button>
+    </div>
+  `);
+};
+window.guardarVideo = function() {
+  const datos = {
+    titulo: document.getElementById('vTitulo').value.trim(),
+    url: document.getElementById('vUrl').value.trim(),
+    categoria: document.getElementById('vCategoria').value,
+    duracion: document.getElementById('vDuracion').value.trim(),
+    instructor: document.getElementById('vInstructor').value.trim(),
+    mes: document.getElementById('vMes').value.trim(),
+    fecha: new Date().toISOString()
+  };
+  if (!datos.titulo || !datos.url) { toast('Título y URL obligatorios', 'error'); return; }
+  db.collection('videos').add(datos).then(() => { cerrarModal(); toast('Video agregado', 'success'); });
+};
+window.eliminarVideo = function(id) {
+  if (!confirm('¿Eliminar este video?')) return;
+  db.collection('videos').doc(id).delete().then(() => toast('Video eliminado', 'success'));
+};
+
+// ═══════════════════════════════════════════════════════════
 // 📚 PDFs
 // ═══════════════════════════════════════════════════════════
 PAGES.pdfs = function() { renderPdfs(); };
@@ -2618,6 +2479,7 @@ function renderWebinars() {
               <td><span class="status status--${estado}">${txt}</span></td>
               <td>
                 ${w.link ? `<a href="${escapeHTML(w.link)}" target="_blank" class="action-btn action-btn--ghost">Link</a>` : ''}
+                <button class="action-btn action-btn--ghost" onclick="editarWebinar('${w.id}')" title="Editar">✏️</button>
                 <button class="action-btn action-btn--danger" onclick="eliminarWebinar('${w.id}')">🗑</button>
               </td>
             </tr>`;
@@ -2627,40 +2489,50 @@ function renderWebinars() {
     </div>`}
   `;
 }
-window.abrirModalNuevoWebinar = function() {
+window.abrirModalNuevoWebinar = function(webinar) {
+  const w = webinar || {};
+  const isEdit = !!w.id;
+  const fechaInput = (() => {
+    if (!w.fecha) return '';
+    try {
+      const d = new Date(w.fecha);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    } catch(e) { return ''; }
+  })();
   abrirModal(`
-    <div class="modal-head"><h3>+ Programar sesión</h3><button class="modal-close" onclick="cerrarModal()">×</button></div>
+    <div class="modal-head"><h3>${isEdit ? '✏️ Editar sesión' : '+ Programar sesión'}</h3><button class="modal-close" onclick="cerrarModal()">×</button></div>
     <div class="modal-body">
-      <div class="field"><label>Título *</label><input type="text" id="wTitulo" placeholder="Q&A bovinos de engorda"></div>
+      <div class="field"><label>Título *</label><input type="text" id="wTitulo" placeholder="Q&A bovinos de engorda" value="${escapeHTML(w.titulo || '')}"></div>
       <div class="field-row">
-        <div class="field"><label>Instructor</label><input type="text" id="wInstructor" placeholder="MVZ. Nombre"></div>
-        <div class="field"><label>Rol</label><input type="text" id="wRol" placeholder="Especialista"></div>
+        <div class="field"><label>Instructor</label><input type="text" id="wInstructor" placeholder="MVZ. Nombre" value="${escapeHTML(w.instructor || '')}"></div>
+        <div class="field"><label>Rol</label><input type="text" id="wRol" placeholder="Especialista" value="${escapeHTML(w.rol || '')}"></div>
       </div>
       <div class="field-row">
-        <div class="field"><label>Fecha *</label>
-          <div class="dp-wrap" id="wFechaPicker">
-            <div class="dp-input dp-empty" id="wFechaInput">Selecciona fecha</div>
-            <span class="dp-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-              </svg>
-            </span>
-            <input type="hidden" id="wFecha">
-          </div>
-        </div>
-        <div class="field"><label>Hora</label><input type="text" id="wHora" placeholder="7:00 PM"></div>
+        <div class="field"><label>Fecha *</label><input type="date" id="wFecha" value="${fechaInput}"></div>
+        <div class="field"><label>Hora</label><input type="text" id="wHora" placeholder="7:00 PM" value="${escapeHTML(w.hora || '')}"></div>
       </div>
-      <div class="field"><label>Duración</label><input type="text" id="wDuracion" placeholder="60 min"></div>
-      <div class="field"><label>Link de la sesión</label><input type="url" id="wLink" placeholder="https://zoom.us/j/..."></div>
-      <div class="field"><label>Link de grabación (cuando termine)</label><input type="url" id="wGrabacion" placeholder="https://..."></div>
+      <div class="field"><label>Duración</label><input type="text" id="wDuracion" placeholder="60 min" value="${escapeHTML(w.duracion || '')}"></div>
+      <div class="field"><label>Link de la sesión</label><input type="url" id="wLink" placeholder="https://zoom.us/j/..." value="${escapeHTML(w.link || '')}"></div>
+      <div class="field">
+        <label>📼 Link de grabación <small style="color:var(--text-mute);">(después de que termine)</small></label>
+        <input type="url" id="wGrabacion" placeholder="https://drive.google.com/..." value="${escapeHTML(w.grabacion || '')}">
+      </div>
     </div>
     <div class="modal-foot">
       <button class="action-btn action-btn--ghost" onclick="cerrarModal()">Cancelar</button>
-      <button class="action-btn action-btn--gold" onclick="guardarWebinar()">Programar</button>
+      <button class="action-btn action-btn--gold" onclick="guardarWebinar(${isEdit ? `'${w.id}'` : 'null'})">${isEdit ? 'Guardar cambios' : 'Programar'}</button>
     </div>
   `);
 };
-window.guardarWebinar = function() {
+window.editarWebinar = function(id) {
+  const w = STATE.webinars.find(x => x.id === id);
+  if (!w) { toast('No se encontró la sesión', 'error'); return; }
+  abrirModalNuevoWebinar(w);
+};
+window.guardarWebinar = function(id) {
   const fecha = document.getElementById('wFecha').value;
   const datos = {
     titulo: document.getElementById('wTitulo').value.trim(),
@@ -2673,7 +2545,11 @@ window.guardarWebinar = function() {
     grabacion: document.getElementById('wGrabacion').value.trim()
   };
   if (!datos.titulo || !datos.fecha) { toast('Título y fecha obligatorios', 'error'); return; }
-  db.collection('sesiones').add(datos).then(() => { cerrarModal(); toast('Sesión programada', 'success'); });
+  if (id) {
+    db.collection('sesiones').doc(id).update(datos).then(() => { cerrarModal(); toast('Sesión actualizada', 'success'); });
+  } else {
+    db.collection('sesiones').add(datos).then(() => { cerrarModal(); toast('Sesión programada', 'success'); });
+  }
 };
 window.eliminarWebinar = function(id) {
   if (!confirm('¿Eliminar esta sesión?')) return;
@@ -2946,6 +2822,7 @@ const CMDK_ACTIONS = [
   { icon: '👥', text: 'Ver miembros', action: () => navigateTo('miembros') },
   { icon: '⏳', text: 'Pagos pendientes', action: () => navigateTo('pendientes') },
   { icon: '🎓', text: 'Cursos del Establo', action: () => navigateTo('cursos') },
+  { icon: '🎬', text: 'Videos / Cineteca', action: () => navigateTo('videos') },
   { icon: '📚', text: 'Biblioteca PDFs', action: () => navigateTo('pdfs') },
   { icon: '📡', text: 'Webinars en vivo', action: () => navigateTo('webinars') },
   { icon: '📢', text: 'Avisos', action: () => navigateTo('avisos') },
@@ -2954,6 +2831,7 @@ const CMDK_ACTIONS = [
   { icon: '💰', text: 'Pagos', action: () => navigateTo('pagos') },
   { icon: '⚙️', text: 'Configuración', action: () => navigateTo('config') },
   { icon: '➕', text: 'Crear nuevo curso', action: () => { navigateTo('cursos'); setTimeout(abrirModalNuevoCurso, 300); } },
+  { icon: '➕', text: 'Subir nuevo video', action: () => { navigateTo('videos'); setTimeout(abrirModalNuevoVideo, 300); } },
   { icon: '➕', text: 'Subir nuevo PDF', action: () => { navigateTo('pdfs'); setTimeout(abrirModalNuevoPdf, 300); } },
   { icon: '➕', text: 'Programar webinar', action: () => { navigateTo('webinars'); setTimeout(abrirModalNuevoWebinar, 300); } },
   { icon: '➕', text: 'Enviar nuevo aviso', action: () => { navigateTo('avisos'); setTimeout(abrirModalNuevoAviso, 300); } },
@@ -3002,234 +2880,6 @@ document.addEventListener('keydown', e => {
   }
 });
 document.getElementById('cmdkInput').addEventListener('input', e => pintarCmdK(e.target.value));
-
-// ═══════════════════════════════════════════════════════════
-// 📅 DATE PICKER CUSTOM (estilo Visión Pecuaria)
-// Usado donde hay .dp-wrap con un input type=hidden adentro
-// ═══════════════════════════════════════════════════════════
-const DP_MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-const DP_MESES_CORTO = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-const DP_DIAS = ['Do','Lu','Ma','Mi','Ju','Vi','Sa'];
-const DP_state = {}; // por id del wrap: { year, month, view: 'days'|'months' }
-
-function dpInit(wrapId) {
-  const wrap = document.getElementById(wrapId);
-  if (!wrap || wrap.__dpInit) return;
-  wrap.__dpInit = true;
-  const input = wrap.querySelector('.dp-input');
-  const hidden = wrap.querySelector('input[type="hidden"]');
-  // Inicializa estado en mes actual
-  const hoy = new Date();
-  DP_state[wrapId] = {
-    year: hoy.getFullYear(),
-    month: hoy.getMonth(),
-    view: 'days',
-    selected: hidden.value ? new Date(hidden.value + 'T00:00:00') : null
-  };
-  input.addEventListener('click', (e) => {
-    e.stopPropagation();
-    dpToggle(wrapId);
-  });
-  document.addEventListener('click', (e) => {
-    if (!wrap.contains(e.target)) dpClose(wrapId);
-  });
-  // Render inicial si ya tiene valor
-  if (hidden.value) dpSetValue(wrapId, hidden.value);
-}
-
-function dpToggle(wrapId) {
-  const wrap = document.getElementById(wrapId);
-  if (wrap.classList.contains('dp-open')) dpClose(wrapId);
-  else dpOpen(wrapId);
-}
-
-function dpOpen(wrapId) {
-  // Cerrar otros pickers abiertos
-  document.querySelectorAll('.dp-wrap.dp-open').forEach(w => w.classList.remove('dp-open'));
-  document.querySelectorAll('.dp-wrap .dp-input').forEach(i => i.classList.remove('dp-focused'));
-  const wrap = document.getElementById(wrapId);
-  const input = wrap.querySelector('.dp-input');
-  // Crear popup si no existe
-  let popup = wrap.querySelector('.dp-popup');
-  if (!popup) {
-    popup = document.createElement('div');
-    popup.className = 'dp-popup';
-    wrap.appendChild(popup);
-  }
-  wrap.classList.add('dp-open');
-  input.classList.add('dp-focused');
-  dpRender(wrapId);
-}
-
-function dpClose(wrapId) {
-  const wrap = document.getElementById(wrapId);
-  const input = wrap.querySelector('.dp-input');
-  wrap.classList.remove('dp-open');
-  input.classList.remove('dp-focused');
-  const st = DP_state[wrapId];
-  if (st) st.view = 'days';
-}
-
-function dpRender(wrapId) {
-  const wrap = document.getElementById(wrapId);
-  const popup = wrap.querySelector('.dp-popup');
-  const st = DP_state[wrapId];
-  if (!popup || !st) return;
-  if (st.view === 'months') {
-    popup.innerHTML = dpRenderMonths(wrapId);
-  } else {
-    popup.innerHTML = dpRenderDays(wrapId);
-  }
-}
-
-function dpRenderDays(wrapId) {
-  const st = DP_state[wrapId];
-  const primerDia = new Date(st.year, st.month, 1).getDay();
-  const diasMes = new Date(st.year, st.month + 1, 0).getDate();
-  const hoy = new Date();
-  hoy.setHours(0,0,0,0);
-
-  let dias = '';
-  // Espacios vacíos antes del día 1
-  for (let i = 0; i < primerDia; i++) {
-    dias += `<div class="dp-day dp-day-empty"></div>`;
-  }
-  for (let d = 1; d <= diasMes; d++) {
-    const fecha = new Date(st.year, st.month, d);
-    fecha.setHours(0,0,0,0);
-    const esHoy = fecha.getTime() === hoy.getTime();
-    const esSel = st.selected && fecha.getTime() === new Date(st.selected.getFullYear(), st.selected.getMonth(), st.selected.getDate()).getTime();
-    const cls = ['dp-day'];
-    if (esHoy) cls.push('dp-day-today');
-    if (esSel) cls.push('dp-day-selected');
-    dias += `<div class="${cls.join(' ')}" onclick="dpSelectDay('${wrapId}', ${d})">${d}</div>`;
-  }
-
-  return `
-    <div class="dp-head">
-      <button type="button" class="dp-nav" onclick="dpChangeMonth('${wrapId}', -1)" title="Mes anterior">‹</button>
-      <div class="dp-title" onclick="dpToggleView('${wrapId}')">${DP_MESES[st.month]} ${st.year}</div>
-      <button type="button" class="dp-nav" onclick="dpChangeMonth('${wrapId}', 1)" title="Siguiente mes">›</button>
-    </div>
-    <div class="dp-week">
-      ${DP_DIAS.map(d => `<div class="dp-week-day">${d}</div>`).join('')}
-    </div>
-    <div class="dp-grid">${dias}</div>
-    <div class="dp-foot">
-      <button type="button" class="dp-btn-action" onclick="dpClear('${wrapId}')">Limpiar</button>
-      <button type="button" class="dp-btn-action dp-btn-today" onclick="dpToday('${wrapId}')">Hoy</button>
-    </div>
-  `;
-}
-
-function dpRenderMonths(wrapId) {
-  const st = DP_state[wrapId];
-  return `
-    <div class="dp-head">
-      <button type="button" class="dp-nav" onclick="dpChangeYear('${wrapId}', -1)">‹</button>
-      <div class="dp-title">${st.year}</div>
-      <button type="button" class="dp-nav" onclick="dpChangeYear('${wrapId}', 1)">›</button>
-    </div>
-    <div class="dp-months-grid">
-      ${DP_MESES_CORTO.map((m, i) => `
-        <button type="button" class="dp-month-btn ${i === st.month ? 'dp-month-current' : ''}" onclick="dpSelectMonth('${wrapId}', ${i})">${m}</button>
-      `).join('')}
-    </div>
-  `;
-}
-
-window.dpChangeMonth = function(wrapId, delta) {
-  const st = DP_state[wrapId];
-  st.month += delta;
-  if (st.month < 0) { st.month = 11; st.year--; }
-  else if (st.month > 11) { st.month = 0; st.year++; }
-  dpRender(wrapId);
-};
-window.dpChangeYear = function(wrapId, delta) {
-  DP_state[wrapId].year += delta;
-  dpRender(wrapId);
-};
-window.dpToggleView = function(wrapId) {
-  const st = DP_state[wrapId];
-  st.view = st.view === 'days' ? 'months' : 'days';
-  dpRender(wrapId);
-};
-window.dpSelectMonth = function(wrapId, idx) {
-  const st = DP_state[wrapId];
-  st.month = idx;
-  st.view = 'days';
-  dpRender(wrapId);
-};
-window.dpSelectDay = function(wrapId, day) {
-  const st = DP_state[wrapId];
-  const fecha = new Date(st.year, st.month, day);
-  st.selected = fecha;
-  dpUpdateInput(wrapId);
-  dpRender(wrapId);
-  setTimeout(() => dpClose(wrapId), 150);
-};
-window.dpToday = function(wrapId) {
-  const hoy = new Date();
-  const st = DP_state[wrapId];
-  st.year = hoy.getFullYear();
-  st.month = hoy.getMonth();
-  st.selected = hoy;
-  dpUpdateInput(wrapId);
-  dpRender(wrapId);
-  setTimeout(() => dpClose(wrapId), 150);
-};
-window.dpClear = function(wrapId) {
-  const st = DP_state[wrapId];
-  st.selected = null;
-  dpUpdateInput(wrapId);
-  dpRender(wrapId);
-};
-
-function dpUpdateInput(wrapId) {
-  const wrap = document.getElementById(wrapId);
-  const input = wrap.querySelector('.dp-input');
-  const hidden = wrap.querySelector('input[type="hidden"]');
-  const st = DP_state[wrapId];
-  if (st.selected) {
-    const y = st.selected.getFullYear();
-    const m = String(st.selected.getMonth() + 1).padStart(2, '0');
-    const d = String(st.selected.getDate()).padStart(2, '0');
-    hidden.value = `${y}-${m}-${d}`;
-    const fmt = st.selected.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    input.textContent = fmt.charAt(0).toUpperCase() + fmt.slice(1);
-    input.classList.remove('dp-empty');
-  } else {
-    hidden.value = '';
-    input.textContent = 'Selecciona fecha';
-    input.classList.add('dp-empty');
-  }
-}
-
-function dpSetValue(wrapId, isoDate) {
-  const st = DP_state[wrapId];
-  if (!st) return;
-  if (!isoDate) {
-    st.selected = null;
-  } else {
-    const d = new Date(isoDate + 'T00:00:00');
-    st.selected = d;
-    st.year = d.getFullYear();
-    st.month = d.getMonth();
-  }
-  dpUpdateInput(wrapId);
-}
-
-// Hook: inicializar cuando se abre el modal (porque los pickers viven dentro)
-const _origAbrirModal = window.abrirModal;
-window.abrirModal = function(html) {
-  if (_origAbrirModal) _origAbrirModal(html);
-  // Buscar todos los pickers en el modal recién abierto e inicializarlos
-  setTimeout(() => {
-    document.querySelectorAll('.dp-wrap').forEach(w => {
-      if (w.id) dpInit(w.id);
-    });
-  }, 50);
-};
 </script>
 
 </body>
