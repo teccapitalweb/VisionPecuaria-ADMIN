@@ -1030,11 +1030,6 @@ input, textarea, select { font-family: inherit; outline: none; }
       <span class="sb-nav-label">Cursos</span>
       <span class="sb-nav-badge" id="badgeCursos" style="display:none">0</span>
     </button>
-    <button class="sb-nav-item" data-page="videos">
-      <span class="sb-nav-icon">🎬</span>
-      <span class="sb-nav-label">Videos</span>
-      <span class="sb-nav-badge" id="badgeVideos" style="display:none">0</span>
-    </button>
     <button class="sb-nav-item" data-page="pdfs">
       <span class="sb-nav-icon">📚</span>
       <span class="sb-nav-label">Biblioteca</span>
@@ -1044,14 +1039,6 @@ input, textarea, select { font-family: inherit; outline: none; }
       <span class="sb-nav-icon">📡</span>
       <span class="sb-nav-label">Webinars</span>
       <span class="sb-nav-badge" id="badgeWebinars" style="display:none">0</span>
-    </button>
-    <button class="sb-nav-item" data-page="avisos">
-      <span class="sb-nav-icon">📢</span>
-      <span class="sb-nav-label">Avisos</span>
-    </button>
-    <button class="sb-nav-item" data-page="examenes">
-      <span class="sb-nav-icon">📝</span>
-      <span class="sb-nav-label">Exámenes</span>
     </button>
     <button class="sb-nav-item" data-page="certificados">
       <span class="sb-nav-icon">🎖️</span>
@@ -1163,12 +1150,9 @@ const STATE = {
   usuariosFree: [],      // Solo registrados sin pagar
   pagosPendientes: [],
   cursos: [],
-  videos: [],
   pdfs: [],
   webinars: [],
-  notificaciones: [],
   pagos: [],
-  examenes: [],
   certificados: [],
   config: {},
   currentPage: 'dashboard'
@@ -1269,11 +1253,8 @@ const PAGE_META = {
   miembros: { title: '👥 Miembros', sub: 'Gestiona los socios de Visión Pecuaria' },
   pendientes: { title: '⏳ Pagos pendientes', sub: 'Aprueba o rechaza accesos solicitados' },
   cursos: { title: '🎓 Cursos', sub: 'Crea, edita y publica cursos del Establo' },
-  videos: { title: '🎬 Videos', sub: 'Webinars y masterclasses para la Cineteca' },
   pdfs: { title: '📚 Biblioteca', sub: 'Manuales, guías y material descargable' },
   webinars: { title: '📡 Sesiones en vivo', sub: 'Programa webinars y eventos en directo' },
-  avisos: { title: '📢 Avisos', sub: 'Notificaciones para todos los miembros' },
-  examenes: { title: '📝 Exámenes', sub: 'Evaluaciones y resultados de cursos' },
   certificados: { title: '🎖️ Certificados', sub: 'Emisión y verificación de constancias' },
   estadisticas: { title: '📊 Estadísticas', sub: 'Métricas y análisis de la plataforma' },
   pagos: { title: '💰 Pagos', sub: 'Historial completo de transacciones' },
@@ -1377,12 +1358,6 @@ function suscribirTodo() {
     if (STATE.currentPage === 'cursos') renderCursos();
   }, 'cursos');
 
-  safeSnapshot(db.collection('videos'), snap => {
-    STATE.videos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    actualizarBadges();
-    if (STATE.currentPage === 'videos') renderVideos();
-  }, 'videos');
-
   safeSnapshot(db.collection('pdfs'), snap => {
     STATE.pdfs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     actualizarBadges();
@@ -1395,12 +1370,6 @@ function suscribirTodo() {
     if (STATE.currentPage === 'webinars') renderWebinars();
     if (STATE.currentPage === 'dashboard') renderDashboard();
   }, 'sesiones');
-
-  safeSnapshot(db.collection('notificaciones').orderBy('fecha','desc').limit(50), snap => {
-    STATE.notificaciones = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    if (STATE.currentPage === 'avisos') renderAvisos();
-    if (STATE.currentPage === 'dashboard') renderDashboard();
-  }, 'notificaciones');
 
   safeSnapshot(db.collection('pagos').orderBy('fecha','desc').limit(100), snap => {
     STATE.pagos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -1417,11 +1386,6 @@ function suscribirTodo() {
     STATE.certificados = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (STATE.currentPage === 'certificados') renderCertificados();
   }, 'certificados');
-
-  safeSnapshot(db.collection('examenes').limit(100), snap => {
-    STATE.examenes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    if (STATE.currentPage === 'examenes') renderExamenes();
-  }, 'examenes');
 }
 
 function actualizarBadges() {
@@ -1430,7 +1394,6 @@ function actualizarBadges() {
     ['badgeMiembros', totalUsuarios],
     ['badgePendientes', STATE.pagosPendientes.length],
     ['badgeCursos', STATE.cursos.length],
-    ['badgeVideos', STATE.videos.length],
     ['badgePdfs', STATE.pdfs.length],
     ['badgeWebinars', STATE.webinars.length]
   ];
@@ -1512,7 +1475,6 @@ function renderDashboard() {
         <div class="kpi-head">
           <div class="kpi-icon">🎓</div>
           <div class="kpi-label">Cursos publicados</div>
-          <span class="kpi-trend kpi-trend--neutral">${STATE.videos.length} videos</span>
         </div>
         <div class="kpi-value">${cursosTotal}</div>
         <div class="kpi-detail">${STATE.pdfs.length} PDFs · ${STATE.webinars.length} webinars</div>
@@ -1602,11 +1564,6 @@ function renderActividad() {
     icon: '💰', tipo: 'success',
     text: `Pago recibido <strong>${fmtMoney(p.monto)}</strong> de <strong>${escapeHTML(p.email||'?')}</strong>`,
     time: p.fecha
-  }));
-  STATE.notificaciones.slice(0,2).forEach(n => evs.push({
-    icon: '📢', tipo: 'info',
-    text: `Aviso enviado: <strong>${escapeHTML(n.titulo||'')}</strong>`,
-    time: n.fecha
   }));
   evs.sort((a,b) => (new Date(b.time||0)) - (new Date(a.time||0)));
   if (!evs.length) return '<div class="empty-state"><div class="empty-state-icon">📭</div><p>Sin actividad reciente</p></div>';
@@ -2311,85 +2268,6 @@ window.eliminarClase = function(cursoId, idx) {
 };
 
 // ═══════════════════════════════════════════════════════════
-// 🎬 VIDEOS
-// ═══════════════════════════════════════════════════════════
-PAGES.videos = function() { renderVideos(); };
-function renderVideos() {
-  const cont = document.getElementById('content');
-  cont.innerHTML = `
-    <div class="page-header">
-      <div><h1>🎬 Videos <span style="font-size:.7em;color:var(--text-mute);font-weight:600;">${STATE.videos.length}</span></h1><p>Webinars y masterclasses</p></div>
-      <div class="page-header-actions">
-        <button class="topbar-btn topbar-btn--primary" onclick="abrirModalNuevoVideo()">+ Subir video</button>
-      </div>
-    </div>
-    ${STATE.videos.length === 0 ? `<div class="block"><div class="empty-state"><div class="empty-state-icon">🎬</div><h3>Sin videos</h3><p>Sube el primer webinar</p></div></div>` : `
-    <div class="cards-grid">
-      ${STATE.videos.map(v => {
-        const yt = ytId(v.url);
-        const thumb = yt ? `https://img.youtube.com/vi/${yt}/hqdefault.jpg` : null;
-        return `<div class="content-card">
-          <div class="content-card-thumb">
-            ${thumb ? `<img src="${thumb}" alt="">` : '<span style="font-size:48px;">🎥</span>'}
-            ${v.duracion ? `<div style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.85);padding:3px 8px;border-radius:6px;font-size:.72rem;font-weight:700;">${escapeHTML(v.duracion)}</div>` : ''}
-          </div>
-          <div class="content-card-body">
-            <div class="content-card-cat">${escapeHTML(v.categoria || 'GENERAL')}</div>
-            <div class="content-card-title">${escapeHTML(v.titulo || 'Sin título')}</div>
-            <div class="content-card-meta">
-              ${v.instructor ? `<span>👤 ${escapeHTML(v.instructor)}</span>` : ''}
-              ${v.mes ? `<span>📅 ${escapeHTML(v.mes)}</span>` : ''}
-            </div>
-            <div class="content-card-actions">
-              ${v.url ? `<a href="${escapeHTML(v.url)}" target="_blank" class="action-btn action-btn--ghost">▶ Ver</a>` : ''}
-              <button class="action-btn action-btn--danger" onclick="eliminarVideo('${v.id}')">🗑</button>
-            </div>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`}
-  `;
-}
-window.abrirModalNuevoVideo = function() {
-  abrirModal(`
-    <div class="modal-head"><h3>+ Subir video</h3><button class="modal-close" onclick="cerrarModal()">×</button></div>
-    <div class="modal-body">
-      <div class="field"><label>Título *</label><input type="text" id="vTitulo" placeholder="Webinar de mastitis bovina"></div>
-      <div class="field"><label>URL YouTube *</label><input type="url" id="vUrl" placeholder="https://youtube.com/watch?v=..."></div>
-      <div class="field-row">
-        <div class="field"><label>Categoría</label><select id="vCategoria"><option>Producción</option><option>Reproducción</option><option>Sanidad</option><option>Nutrición</option><option>Gestión</option><option>General</option></select></div>
-        <div class="field"><label>Duración</label><input type="text" id="vDuracion" placeholder="45 min"></div>
-      </div>
-      <div class="field-row">
-        <div class="field"><label>Instructor</label><input type="text" id="vInstructor" placeholder="MVZ. Nombre"></div>
-        <div class="field"><label>Mes</label><input type="text" id="vMes" placeholder="Mayo 2026"></div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="action-btn action-btn--ghost" onclick="cerrarModal()">Cancelar</button>
-      <button class="action-btn action-btn--gold" onclick="guardarVideo()">Guardar</button>
-    </div>
-  `);
-};
-window.guardarVideo = function() {
-  const datos = {
-    titulo: document.getElementById('vTitulo').value.trim(),
-    url: document.getElementById('vUrl').value.trim(),
-    categoria: document.getElementById('vCategoria').value,
-    duracion: document.getElementById('vDuracion').value.trim(),
-    instructor: document.getElementById('vInstructor').value.trim(),
-    mes: document.getElementById('vMes').value.trim(),
-    fecha: new Date().toISOString()
-  };
-  if (!datos.titulo || !datos.url) { toast('Título y URL obligatorios', 'error'); return; }
-  db.collection('videos').add(datos).then(() => { cerrarModal(); toast('Video agregado', 'success'); });
-};
-window.eliminarVideo = function(id) {
-  if (!confirm('¿Eliminar este video?')) return;
-  db.collection('videos').doc(id).delete().then(() => toast('Video eliminado', 'success'));
-};
-
-// ═══════════════════════════════════════════════════════════
 // 📚 PDFs
 // ═══════════════════════════════════════════════════════════
 PAGES.pdfs = function() { renderPdfs(); };
@@ -2555,73 +2433,6 @@ window.eliminarWebinar = function(id) {
   if (!confirm('¿Eliminar esta sesión?')) return;
   db.collection('sesiones').doc(id).delete().then(() => toast('Sesión eliminada', 'success'));
 };
-
-// ═══════════════════════════════════════════════════════════
-// 📢 AVISOS
-// ═══════════════════════════════════════════════════════════
-PAGES.avisos = function() { renderAvisos(); };
-function renderAvisos() {
-  const cont = document.getElementById('content');
-  cont.innerHTML = `
-    <div class="page-header">
-      <div><h1>📢 Avisos</h1><p>Notificaciones para todos los miembros</p></div>
-      <div class="page-header-actions"><button class="topbar-btn topbar-btn--primary" onclick="abrirModalNuevoAviso()">+ Nuevo aviso</button></div>
-    </div>
-    ${STATE.notificaciones.length === 0 ? `<div class="block"><div class="empty-state"><div class="empty-state-icon">📢</div><h3>Sin avisos</h3></div></div>` : `
-    <div class="block"><div class="activity-list">
-      ${STATE.notificaciones.map(n => `
-        <div class="activity-item">
-          <div class="activity-icon activity-icon--info">📢</div>
-          <div class="activity-content">
-            <div class="activity-text"><strong>${escapeHTML(n.titulo||'')}</strong></div>
-            <div style="color:var(--text-soft);font-size:.85rem;margin-top:2px;">${escapeHTML(n.mensaje||'')}</div>
-            <div class="activity-time">${fmtRelative(n.fecha)}</div>
-          </div>
-          <button class="action-btn action-btn--danger" onclick="eliminarAviso('${n.id}')">🗑</button>
-        </div>
-      `).join('')}
-    </div></div>`}
-  `;
-}
-window.abrirModalNuevoAviso = function() {
-  abrirModal(`
-    <div class="modal-head"><h3>+ Nuevo aviso</h3><button class="modal-close" onclick="cerrarModal()">×</button></div>
-    <div class="modal-body">
-      <div class="field"><label>Título *</label><input type="text" id="aTitulo" placeholder="Nueva clase publicada"></div>
-      <div class="field"><label>Mensaje *</label><textarea id="aMensaje" placeholder="Detalles del aviso..."></textarea></div>
-    </div>
-    <div class="modal-foot">
-      <button class="action-btn action-btn--ghost" onclick="cerrarModal()">Cancelar</button>
-      <button class="action-btn action-btn--gold" onclick="guardarAviso()">Publicar</button>
-    </div>
-  `);
-};
-window.guardarAviso = function() {
-  const titulo = document.getElementById('aTitulo').value.trim();
-  const mensaje = document.getElementById('aMensaje').value.trim();
-  if (!titulo || !mensaje) { toast('Título y mensaje obligatorios', 'error'); return; }
-  db.collection('notificaciones').add({ titulo, mensaje, fecha: new Date().toISOString() }).then(() => {
-    cerrarModal(); toast('Aviso publicado', 'success');
-  });
-};
-window.eliminarAviso = function(id) {
-  if (!confirm('¿Eliminar este aviso?')) return;
-  db.collection('notificaciones').doc(id).delete().then(() => toast('Aviso eliminado', 'success'));
-};
-
-// ═══════════════════════════════════════════════════════════
-// 📝 EXÁMENES
-// ═══════════════════════════════════════════════════════════
-PAGES.examenes = function() { renderExamenes(); };
-function renderExamenes() {
-  const cont = document.getElementById('content');
-  cont.innerHTML = `
-    <div class="page-header">
-      <div><h1>📝 Exámenes</h1><p>Evaluaciones y resultados</p></div>
-    </div>
-    <div class="block"><div class="empty-state"><div class="empty-state-icon">📝</div><h3>Sistema de exámenes</h3><p>Próximamente: crear quizzes por curso, ver resultados, calificar automático</p></div></div>
-  `;
-}
 
 // ═══════════════════════════════════════════════════════════
 // 🎖️ CERTIFICADOS
