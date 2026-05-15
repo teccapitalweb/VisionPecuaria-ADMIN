@@ -1322,7 +1322,8 @@ function fmtRelative(d) {
   return date.toLocaleDateString('es-MX', { day:'numeric', month:'short' });
 }
 function fmtMoney(n) {
-  return '$' + (n || 0).toLocaleString('es-MX');
+  const num = Number(n) || 0;
+  return '$' + num.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' MXN';
 }
 function iniciales(nombre) {
   return (nombre || 'VP').split(' ').slice(0,2).map(s => s[0]||'').join('').toUpperCase();
@@ -1472,7 +1473,7 @@ function renderDashboard() {
   const ingresosMes = STATE.pagos.filter(p => {
     const d = p.fecha ? new Date(p.fecha) : null;
     return d && d.getMonth() === new Date().getMonth() && d.getFullYear() === new Date().getFullYear();
-  }).reduce((acc, p) => acc + (p.monto || 0), 0);
+  }).reduce((acc, p) => acc + (Number(p.monto) || 0), 0);
 
   // Mini bar chart (últimos 7 días de registros)
   const days7 = [];
@@ -1520,7 +1521,6 @@ function renderDashboard() {
         <div class="kpi-head">
           <div class="kpi-icon">💰</div>
           <div class="kpi-label">Ingresos del mes</div>
-          <span class="kpi-trend kpi-trend--up">MXN</span>
         </div>
         <div class="kpi-value">${fmtMoney(ingresosMes)}</div>
         <div class="kpi-detail">${STATE.pagos.length} transacciones totales</div>
@@ -2705,7 +2705,7 @@ function renderStats() {
   for (let i = 11; i >= 0; i--) {
     const d = new Date(); d.setMonth(d.getMonth()-i); d.setDate(1); d.setHours(0,0,0,0);
     const next = new Date(d); next.setMonth(next.getMonth()+1);
-    const total = STATE.pagos.filter(p => { const f = p.fecha?new Date(p.fecha):null; return f && f >= d && f < next; }).reduce((a,p) => a + (p.monto||0), 0);
+    const total = STATE.pagos.filter(p => { const f = p.fecha?new Date(p.fecha):null; return f && f >= d && f < next; }).reduce((a,p) => a + (Number(p.monto)||0), 0);
     ingresos12m.push({ label: d.toLocaleDateString('es-MX',{month:'short'}).slice(0,3), val: total });
   }
   const maxIng = Math.max(1, ...ingresos12m.map(d => d.val));
@@ -2756,7 +2756,7 @@ function renderStats() {
 PAGES.pagos = function() { renderPagos(); };
 function renderPagos() {
   const cont = document.getElementById('content');
-  const total = STATE.pagos.reduce((a,p) => a + (p.monto||0), 0);
+  const total = STATE.pagos.reduce((a,p) => a + (Number(p.monto)||0), 0);
   cont.innerHTML = `
     <div class="page-header"><div><h1>💰 Pagos <span style="font-size:.7em;color:var(--text-mute);font-weight:600;">${STATE.pagos.length}</span></h1><p>Total recibido: <strong style="color:var(--gold-light);">${fmtMoney(total)}</strong></p></div></div>
     ${STATE.pagos.length === 0 ? `<div class="block"><div class="empty-state"><div class="empty-state-icon">💸</div><h3>Sin pagos</h3></div></div>` : `
