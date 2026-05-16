@@ -1159,8 +1159,16 @@ const STATE = {
 };
 
 // Combina miembros + usuarios_free en una sola lista normalizada
+// MODIFICADO: ahora también normaliza fechas de los miembros (no solo de free),
+// y normaliza el campo `vence` para que `new Date(m.vence)` funcione en todos lados.
 function todosLosUsuarios() {
-  const miembros = STATE.miembros.map(m => ({ ...m, _tipo: 'miembro' }));
+  const toISO = function(v) { const d = toDate(v); return d ? d.toISOString() : null; };
+  const miembros = STATE.miembros.map(m => ({
+    ...m,
+    _tipo: 'miembro',
+    fechaRegistro: toISO(m.fechaRegistro),
+    vence: toISO(m.vence)
+  }));
   const free = STATE.usuariosFree
     // Si ya existe en miembros (mismo email), no duplicar
     .filter(u => !STATE.miembros.find(m => m.email === u.email))
@@ -1169,7 +1177,8 @@ function todosLosUsuarios() {
       _tipo: 'free',
       plan: u.plan || 'Free',
       estado: 'free',
-      fechaRegistro: u.fechaRegistro?.toDate ? u.fechaRegistro.toDate().toISOString() : (u.fechaRegistro || null)
+      fechaRegistro: toISO(u.fechaRegistro),
+      vence: toISO(u.vence)
     }));
   return [...miembros, ...free];
 }
@@ -1279,22 +1288,44 @@ document.querySelectorAll('.sb-nav-item').forEach(btn => {
 // ═══════════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════════
+// MODIFICADO: helper universal para convertir cualquier formato de fecha a Date
+// Maneja: Date, string ISO, number (timestamp ms), Firestore Timestamp ({toDate()}),
+// objetos serializados ({seconds, nanoseconds} o {_seconds, _nanoseconds}), null/undefined
+function toDate(d) {
+  if (!d) return null;
+  if (d instanceof Date) return isNaN(d) ? null : d;
+  if (typeof d === 'string' || typeof d === 'number') {
+    const x = new Date(d);
+    return isNaN(x) ? null : x;
+  }
+  if (typeof d === 'object') {
+    // Firestore Timestamp del SDK (tiene .toDate())
+    if (typeof d.toDate === 'function') {
+      try { const x = d.toDate(); return isNaN(x) ? null : x; } catch(e) { return null; }
+    }
+    // Firestore Timestamp serializado a JSON
+    const secs = d.seconds ?? d._seconds;
+    if (typeof secs === 'number') {
+      const x = new Date(secs * 1000);
+      return isNaN(x) ? null : x;
+    }
+  }
+  return null;
+}
+
 function fmtFecha(d) {
-  if (!d) return '—';
-  const date = typeof d === 'string' ? new Date(d) : d;
-  if (isNaN(date)) return '—';
+  const date = toDate(d);
+  if (!date) return '—';
   return date.toLocaleDateString('es-MX', { day:'numeric', month:'short', year:'numeric' });
 }
 function fmtFechaCorta(d) {
-  if (!d) return '—';
-  const date = typeof d === 'string' ? new Date(d) : d;
-  if (isNaN(date)) return '—';
+  const date = toDate(d);
+  if (!date) return '—';
   return date.toLocaleDateString('es-MX', { day:'numeric', month:'short' });
 }
 function fmtRelative(d) {
-  if (!d) return '';
-  const date = typeof d === 'string' ? new Date(d) : d;
-  if (isNaN(date)) return '';
+  const date = toDate(d);
+  if (!date) return '';
   const diff = (Date.now() - date.getTime()) / 1000;
   if (diff < 60) return 'hace un momento';
   if (diff < 3600) return `hace ${Math.floor(diff/60)} min`;
