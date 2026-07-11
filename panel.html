@@ -12,6 +12,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 
 <style>
 :root {
@@ -1044,6 +1045,10 @@ input, textarea, select { font-family: inherit; outline: none; }
       <span class="sb-nav-icon">🎖️</span>
       <span class="sb-nav-label">Certificados</span>
     </button>
+    <button class="sb-nav-item" data-page="cursosVenta">
+      <span class="sb-nav-icon">🛒</span>
+      <span class="sb-nav-label">Cursos en Venta</span>
+    </button>
   </nav>
 
   <div class="sb-section-label">Reportes</div>
@@ -1141,6 +1146,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+const storage = firebase.storage();
 
 // ═══════════════════════════════════════════════════════════
 // STATE GLOBAL
@@ -1154,6 +1160,8 @@ const STATE = {
   webinars: [],
   pagos: [],
   certificados: [],
+  cursosVenta: [],       // Cursos a la venta (embutidos, futuros)
+  comprasCurso: [],      // Ventas confirmadas de cursos
   config: {},
   currentPage: 'dashboard'
 };
@@ -1265,6 +1273,7 @@ const PAGE_META = {
   pdfs: { title: '📚 Biblioteca', sub: 'Manuales, guías y material descargable' },
   webinars: { title: '📡 Sesiones en vivo', sub: 'Programa webinars y eventos en directo' },
   certificados: { title: '🎖️ Certificados', sub: 'Emisión y verificación de constancias' },
+  cursosVenta: { title: '🛒 Cursos en Venta', sub: 'Gestiona precios, cupos, videoclases y ventas' },
   estadisticas: { title: '📊 Estadísticas', sub: 'Métricas y análisis de la plataforma' },
   pagos: { title: '💰 Pagos', sub: 'Historial completo de transacciones' },
   config: { title: '⚙️ Configuración', sub: 'Ajustes generales de Visión Pecuaria' }
@@ -1417,6 +1426,17 @@ function suscribirTodo() {
     STATE.certificados = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     if (STATE.currentPage === 'certificados') renderCertificados();
   }, 'certificados');
+
+  // ─── CURSOS EN VENTA ───────────────────────────────────────────
+  safeSnapshot(db.collection('cursosVenta'), snap => {
+    STATE.cursosVenta = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (STATE.currentPage === 'cursosVenta') renderCursosVenta();
+  }, 'cursosVenta');
+
+  safeSnapshot(db.collection('comprasCurso').orderBy('fechaCompra','desc').limit(200), snap => {
+    STATE.comprasCurso = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (STATE.currentPage === 'cursosVenta') renderCursosVenta();
+  }, 'comprasCurso');
 }
 
 function actualizarBadges() {
@@ -2531,6 +2551,732 @@ window.guardarCert = function() {
 window.eliminarCert = function(id) {
   if (!confirm('¿Eliminar este certificado?')) return;
   db.collection('certificados').doc(id).delete().then(() => toast('Eliminado', 'success'));
+};
+
+// ═══════════════════════════════════════════════════════════
+// 🛒 CURSOS EN VENTA — gestión completa (precios, cupos, clases, ventas)
+// ═══════════════════════════════════════════════════════════
+PAGES.cursosVenta = function() { renderCursosVenta(); };
+
+function renderCursosVenta() {
+  const cursos = STATE.cursosVenta || [];
+  const compras = STATE.comprasCurso || [];
+
+  // Métricas resumen
+  const totalVendido = compras.reduce((sum, c) => sum + (Number(c.montoPagadoCentavos) || 0), 0);
+  const totalCompras = compras.length;
+  const cursosActivos = cursos.filter(c => c.activo !== false).length;
+
+  document.getElementById('content').innerHTML = `
+    <div class="page-head">
+      <div>
+        <h1>🛒 Cursos en Venta <span style="font-size:.7em;color:var(--text-mute);font-weight:600;">${cursos.length}</span></h1>
+        <p>Precios, cupos, videoclases, recursos y ventas confirmadas</p>
+      </div>
+      <button class="action-btn action-btn--gold" onclick="abrirModalNuevoCursoVenta()">+ Crear curso</button>
+    </div>
+
+    <!-- Métricas resumen -->
+    <div class="stats-grid" style="margin-bottom:20px;">
+      <div class="stat-card">
+        <div class="stat-icon">🎓</div>
+        <div>
+          <div class="stat-num">${cursos.length}</div>
+          <div class="stat-label">Cursos totales · ${cursosActivos} activos</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🛍️</div>
+        <div>
+          <div class="stat-num">${totalCompras}</div>
+          <div class="stat-label">Ventas confirmadas</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">💰</div>
+        <div>
+          <div class="stat-num">$${(totalVendido/100).toLocaleString('es-MX')}</div>
+          <div class="stat-label">Ingresos totales MXN</div>
+        </div>
+      </div>
+    </div>
+
+    ${cursos.length === 0 ? `
+      <div class="block">
+        <div class="empty-state">
+          <div class="empty-state-icon">🛒</div>
+          <h3>Sin cursos en venta</h3>
+          <p>Crea tu primer curso para empezar a vender. Se generará una landing pública lista para recibir inscripciones.</p>
+        </div>
+      </div>
+    ` : `
+      <div class="block">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Curso</th>
+              <th>Precio</th>
+              <th>Cupo lanzamiento</th>
+              <th>Ventas</th>
+              <th>Fecha inicio</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${cursos.map(c => {
+              const ventasCurso = compras.filter(v => v.slug === c.id).length;
+              const ingresosCurso = compras.filter(v => v.slug === c.id).reduce((s,v) => s + (Number(v.montoPagadoCentavos)||0), 0);
+              const precioLanz  = ((Number(c.precioLanzamientoCentavos)||0)/100).toLocaleString('es-MX');
+              const precioNorm  = ((Number(c.precioNormalCentavos)||0)/100).toLocaleString('es-MX');
+              const cupoMax     = Number(c.cupoLanzamientoMax) || 0;
+              const cupoTom     = Number(c.cupoLanzamientoTomados) || 0;
+              const fechaIni    = c.fechaInicio ? fmtFecha(c.fechaInicio) : '—';
+              const activo      = c.activo !== false;
+              return `
+                <tr>
+                  <td>
+                    <div style="font-weight:700;color:var(--text);margin-bottom:2px;">${escapeHTML(c.nombre || c.id)}</div>
+                    <div style="font-size:.72rem;color:var(--text-mute);"><code>${escapeHTML(c.id)}</code></div>
+                  </td>
+                  <td>
+                    <div style="font-weight:700;color:var(--gold-light);">$${precioLanz}</div>
+                    <div style="font-size:.68rem;color:var(--text-mute);text-decoration:line-through;">$${precioNorm}</div>
+                  </td>
+                  <td>
+                    <div style="font-weight:700;">${cupoTom} / ${cupoMax}</div>
+                    <div style="height:4px;background:rgba(255,255,255,.08);border-radius:2px;margin-top:4px;overflow:hidden;">
+                      <div style="height:100%;width:${cupoMax > 0 ? Math.min(100, (cupoTom/cupoMax)*100) : 0}%;background:linear-gradient(90deg,var(--gold),var(--gold-light));"></div>
+                    </div>
+                  </td>
+                  <td>
+                    <div style="font-weight:700;">${ventasCurso}</div>
+                    <div style="font-size:.68rem;color:var(--text-mute);">$${(ingresosCurso/100).toLocaleString('es-MX')} MXN</div>
+                  </td>
+                  <td>${fechaIni}</td>
+                  <td>
+                    <span class="badge ${activo ? 'badge--success' : 'badge--muted'}">${activo ? 'Activo' : 'Pausado'}</span>
+                  </td>
+                  <td>
+                    <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                      <button class="action-btn action-btn--ghost" onclick="abrirModalEditarCurso('${c.id}')" title="Editar">✏️</button>
+                      <button class="action-btn action-btn--ghost" onclick="abrirModalClases('${c.id}')" title="Clases">🎥</button>
+                      <button class="action-btn action-btn--ghost" onclick="abrirModalRecursos('${c.id}')" title="Recursos">📎</button>
+                      <button class="action-btn action-btn--ghost" onclick="abrirModalVentasCurso('${c.id}')" title="Ventas">💰</button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `}
+  `;
+}
+
+// ─── EDITAR/CREAR CURSO ───────────────────────────────────────────
+window.abrirModalNuevoCursoVenta = function() {
+  abrirModalEditarCurso(null); // null = modo crear
+};
+
+window.abrirModalEditarCurso = function(cursoId) {
+  const esNuevo = !cursoId;
+  const c = esNuevo ? {
+    nombre: '',
+    subtitulo: '',
+    precioNormalCentavos: 55000,
+    precioLanzamientoCentavos: 45000,
+    moneda: 'mxn',
+    cupoLanzamientoMax: 15,
+    cupoLanzamientoTomados: 0,
+    duracionHoras: 5,
+    modalidad: 'on-demand',
+    fechaInicio: null,
+    instructorId: '',
+    instructorNombre: '',
+    activo: true
+  } : (STATE.cursosVenta.find(x => x.id === cursoId) || {});
+
+  const fechaIniISO = c.fechaInicio ? (() => {
+    const d = toDate(c.fechaInicio);
+    return d ? d.toISOString().slice(0,16) : '';
+  })() : '';
+
+  abrirModal(`
+    <div class="modal-head">
+      <h3>${esNuevo ? '+ Crear curso' : '✏️ Editar curso'}</h3>
+      <button class="modal-close" onclick="cerrarModal()">×</button>
+    </div>
+    <div class="modal-body">
+      ${!esNuevo ? `
+        <div class="field">
+          <label>Slug / ID (no editable)</label>
+          <input type="text" id="cvSlug" value="${escapeHTML(cursoId)}" disabled>
+          <small style="color:var(--text-mute);">Este es el ID en Firestore y la URL: <code>/${cursoId}.html</code></small>
+        </div>
+      ` : `
+        <div class="field">
+          <label>Slug / ID *</label>
+          <input type="text" id="cvSlug" placeholder="embutidos-artesanales" pattern="[a-z0-9-]+">
+          <small style="color:var(--text-mute);">Sin espacios, solo minúsculas y guiones. Ej: <code>chile-habanero-2</code></small>
+        </div>
+      `}
+      <div class="field">
+        <label>Nombre del curso *</label>
+        <input type="text" id="cvNombre" value="${escapeHTML(c.nombre || '')}" placeholder="Elaboración de Chorizo, Carne Enchilada y Embutidos Artesanales">
+      </div>
+      <div class="field">
+        <label>Subtítulo</label>
+        <input type="text" id="cvSubtitulo" value="${escapeHTML(c.subtitulo || '')}" placeholder="Aprende paso a paso las recetas artesanales">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Precio normal (MXN) *</label>
+          <input type="number" id="cvPrecioNormal" value="${((Number(c.precioNormalCentavos)||0)/100)}" min="0" step="10">
+        </div>
+        <div class="field">
+          <label>Precio lanzamiento (MXN) *</label>
+          <input type="number" id="cvPrecioLanz" value="${((Number(c.precioLanzamientoCentavos)||0)/100)}" min="0" step="10">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Cupo lanzamiento (máx.)</label>
+          <input type="number" id="cvCupoMax" value="${Number(c.cupoLanzamientoMax) || 15}" min="0">
+        </div>
+        <div class="field">
+          <label>Cupos tomados</label>
+          <input type="number" id="cvCupoTom" value="${Number(c.cupoLanzamientoTomados) || 0}" min="0">
+          <small style="color:var(--text-mute);">Modifica manual solo si necesitas resetear</small>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Duración (horas)</label>
+          <input type="number" id="cvDuracion" value="${Number(c.duracionHoras) || 5}" min="0" step="0.5">
+        </div>
+        <div class="field">
+          <label>Modalidad</label>
+          <select id="cvModalidad">
+            <option value="on-demand" ${c.modalidad === 'on-demand' ? 'selected' : ''}>On-demand (grabado)</option>
+            <option value="en-vivo" ${c.modalidad === 'en-vivo' ? 'selected' : ''}>En vivo</option>
+            <option value="hibrido" ${c.modalidad === 'hibrido' ? 'selected' : ''}>Híbrido</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Fecha de inicio</label>
+        <input type="datetime-local" id="cvFechaInicio" value="${fechaIniISO}">
+        <small style="color:var(--text-mute);">Se muestra en la landing como "Disponible desde ..." y activa el countdown</small>
+      </div>
+      <div class="field">
+        <label>Nombre del instructor</label>
+        <input type="text" id="cvInstructorNombre" value="${escapeHTML(c.instructorNombre || '')}" placeholder="M.V.Z. José Antonio Castillo García">
+      </div>
+      <div class="field">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input type="checkbox" id="cvActivo" ${c.activo !== false ? 'checked' : ''}>
+          <span>Curso activo (visible en la landing pública)</span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="action-btn action-btn--ghost" onclick="cerrarModal()">Cancelar</button>
+      <button class="action-btn action-btn--gold" onclick="guardarCursoVenta(${esNuevo ? 'null' : `'${cursoId}'`})">${esNuevo ? 'Crear' : 'Guardar cambios'}</button>
+    </div>
+  `);
+};
+
+window.guardarCursoVenta = async function(cursoId) {
+  const slug = cursoId || (document.getElementById('cvSlug').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'-'));
+  if (!slug) { toast('El slug es requerido', 'error'); return; }
+  const nombre = document.getElementById('cvNombre').value.trim();
+  if (!nombre) { toast('El nombre es requerido', 'error'); return; }
+
+  const fechaInicioVal = document.getElementById('cvFechaInicio').value;
+  const fechaInicio = fechaInicioVal ? new Date(fechaInicioVal) : null;
+
+  const datos = {
+    nombre,
+    subtitulo: document.getElementById('cvSubtitulo').value.trim(),
+    precioNormalCentavos: Math.round(Number(document.getElementById('cvPrecioNormal').value || 0) * 100),
+    precioLanzamientoCentavos: Math.round(Number(document.getElementById('cvPrecioLanz').value || 0) * 100),
+    moneda: 'mxn',
+    cupoLanzamientoMax: Number(document.getElementById('cvCupoMax').value) || 0,
+    cupoLanzamientoTomados: Number(document.getElementById('cvCupoTom').value) || 0,
+    duracionHoras: Number(document.getElementById('cvDuracion').value) || 0,
+    modalidad: document.getElementById('cvModalidad').value,
+    fechaInicio: fechaInicio ? firebase.firestore.Timestamp.fromDate(fechaInicio) : null,
+    instructorNombre: document.getElementById('cvInstructorNombre').value.trim(),
+    activo: document.getElementById('cvActivo').checked
+  };
+
+  try {
+    await db.collection('cursosVenta').doc(slug).set(datos, { merge: true });
+    cerrarModal();
+    toast(cursoId ? `Curso ${slug} actualizado` : `Curso ${slug} creado`, 'success');
+  } catch (err) {
+    console.error(err);
+    toast('Error al guardar: ' + err.message, 'error');
+  }
+};
+
+// ─── VENTAS DEL CURSO ───────────────────────────────────────────
+window.abrirModalVentasCurso = function(slug) {
+  const compras = (STATE.comprasCurso || []).filter(c => c.slug === slug);
+  const curso = STATE.cursosVenta.find(c => c.id === slug);
+  const totalIngresos = compras.reduce((s,c) => s + (Number(c.montoPagadoCentavos)||0), 0);
+
+  abrirModal(`
+    <div class="modal-head">
+      <h3>💰 Ventas · ${escapeHTML(curso?.nombre || slug)}</h3>
+      <button class="modal-close" onclick="cerrarModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+        <div style="background:rgba(255,255,255,.04);padding:14px;border-radius:10px;">
+          <div style="font-size:.7rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">Ventas</div>
+          <div style="font-size:1.5rem;font-weight:800;color:var(--gold-light);">${compras.length}</div>
+        </div>
+        <div style="background:rgba(255,255,255,.04);padding:14px;border-radius:10px;">
+          <div style="font-size:.7rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">Ingresos</div>
+          <div style="font-size:1.5rem;font-weight:800;color:var(--gold-light);">$${(totalIngresos/100).toLocaleString('es-MX')}</div>
+        </div>
+        <div style="background:rgba(255,255,255,.04);padding:14px;border-radius:10px;">
+          <div style="font-size:.7rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">Promedio</div>
+          <div style="font-size:1.5rem;font-weight:800;color:var(--gold-light);">$${compras.length > 0 ? Math.round((totalIngresos/100)/compras.length).toLocaleString('es-MX') : 0}</div>
+        </div>
+      </div>
+      ${compras.length === 0 ? `
+        <div class="empty-state">
+          <div class="empty-state-icon">💰</div>
+          <h3>Sin ventas aún</h3>
+          <p>Cuando alguien compre este curso aparecerá aquí.</p>
+        </div>
+      ` : `
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Alumno</th>
+              <th>Monto</th>
+              <th>Fecha</th>
+              <th>Certificado</th>
+              <th>Stripe</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${compras.map(v => {
+              const cert = (STATE.certificados || []).find(c => c.cursoSlug === v.slug && (c.email||'').toLowerCase() === (v.email||'').toLowerCase());
+              return `
+                <tr>
+                  <td>
+                    <div style="font-weight:700;color:var(--text);">${escapeHTML(v.nombre || '—')}</div>
+                    <div style="font-size:.72rem;color:var(--text-mute);">${escapeHTML(v.email || '')}</div>
+                  </td>
+                  <td style="font-weight:700;color:var(--gold-light);">$${((Number(v.montoPagadoCentavos)||0)/100).toLocaleString('es-MX')}</td>
+                  <td>${fmtFecha(v.fechaCompra)}</td>
+                  <td>
+                    ${cert ? `<code style="font:600 .72rem 'JetBrains Mono',monospace;color:var(--gold-light);">${escapeHTML(cert.folio)}</code>` : '<span style="color:var(--text-mute);">Pendiente</span>'}
+                  </td>
+                  <td>
+                    ${v.stripeSessionId ? `<a href="https://dashboard.stripe.com/payments/${escapeHTML(v.stripePaymentIntent || v.stripeSessionId)}" target="_blank" rel="noopener" style="color:var(--gold-light);text-decoration:none;font-size:.78rem;">Ver en Stripe ↗</a>` : '—'}
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      `}
+    </div>
+    <div class="modal-foot">
+      <button class="action-btn action-btn--ghost" onclick="cerrarModal()">Cerrar</button>
+    </div>
+  `);
+};
+
+// ─── SUBIR CLASES (videos) ───────────────────────────────────────
+window.abrirModalClases = function(slug) {
+  const curso = STATE.cursosVenta.find(c => c.id === slug);
+  if (!curso) { toast('Curso no encontrado', 'error'); return; }
+  const clases = Array.isArray(curso.clases) ? curso.clases : [];
+
+  abrirModal(`
+    <div class="modal-head">
+      <h3>🎥 Clases · ${escapeHTML(curso.nombre || slug)}</h3>
+      <button class="modal-close" onclick="cerrarModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:rgba(212,160,23,.08);border:1px solid rgba(212,160,23,.28);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:.85rem;line-height:1.5;">
+        💡 <b>Cómo funciona:</b> arrastra o elige un MP4. Se sube a Firebase Storage en <code>cursos/${escapeHTML(slug)}/clase-XX.mp4</code> y se registra en el curso. Solo alumnos con acceso confirmado podrán verlo.
+      </div>
+
+      <div id="clasesList">
+        ${clases.length === 0 ? `
+          <div class="empty-state" style="padding:24px;">
+            <div class="empty-state-icon">🎥</div>
+            <h3>Sin clases aún</h3>
+            <p>Sube la primera videoclase abajo.</p>
+          </div>
+        ` : clases.map((cl, i) => `
+          <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:14px;">
+            <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--gold),var(--gold-deep));color:#111;font-weight:800;display:grid;place-items:center;flex-shrink:0;">${cl.orden || i+1}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:700;color:var(--text);margin-bottom:2px;">${escapeHTML(cl.titulo || 'Clase ' + (i+1))}</div>
+              <div style="font-size:.72rem;color:var(--text-mute);">
+                ${cl.duracionMin ? cl.duracionMin + ' min · ' : ''}
+                ${cl.storagePath ? '<code>' + escapeHTML(cl.storagePath) + '</code>' : '<span style="color:#f59e0b;">Sin archivo</span>'}
+              </div>
+            </div>
+            <button class="action-btn action-btn--ghost" onclick="editarClase('${slug}', ${i})" title="Editar">✏️</button>
+            <button class="action-btn action-btn--danger" onclick="eliminarClase('${slug}', ${i})" title="Eliminar">🗑</button>
+          </div>
+        `).join('')}
+      </div>
+
+      <div style="border-top:1px solid rgba(255,255,255,.08);margin-top:20px;padding-top:20px;">
+        <h4 style="margin-bottom:14px;color:var(--gold-light);">+ Agregar nueva clase</h4>
+        <div class="field">
+          <label>Título de la clase *</label>
+          <input type="text" id="claseTitulo" placeholder="Ej. Chorizo rojo mexicano paso a paso">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Duración (min)</label>
+            <input type="number" id="claseDuracion" placeholder="45" min="0">
+          </div>
+          <div class="field">
+            <label>Orden</label>
+            <input type="number" id="claseOrden" value="${clases.length + 1}" min="1">
+          </div>
+        </div>
+        <div class="field">
+          <label>Descripción (opcional)</label>
+          <textarea id="claseDesc" rows="2" placeholder="Qué se cubre en esta clase"></textarea>
+        </div>
+        <div class="field">
+          <label>Archivo de video (MP4) *</label>
+          <input type="file" id="claseArchivo" accept="video/mp4,video/quicktime,video/*" style="padding:10px;">
+          <small style="color:var(--text-mute);">Máx. recomendado: 500MB por clase. La subida puede tardar varios minutos.</small>
+        </div>
+        <div id="claseProgreso" style="display:none;margin:12px 0;">
+          <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:6px;">
+            <span>Subiendo...</span>
+            <span id="claseProgresoPct">0%</span>
+          </div>
+          <div style="height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;">
+            <div id="claseProgresoBar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--gold),var(--gold-light));transition:width .3s;"></div>
+          </div>
+        </div>
+        <button class="action-btn action-btn--gold" id="claseSubirBtn" onclick="subirClase('${slug}')" style="width:100%;">
+          🚀 Subir clase
+        </button>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="action-btn action-btn--ghost" onclick="cerrarModal()">Cerrar</button>
+    </div>
+  `);
+};
+
+window.subirClase = async function(slug) {
+  const titulo = document.getElementById('claseTitulo').value.trim();
+  const duracion = Number(document.getElementById('claseDuracion').value) || 0;
+  const orden = Number(document.getElementById('claseOrden').value) || 1;
+  const desc = document.getElementById('claseDesc').value.trim();
+  const file = document.getElementById('claseArchivo').files[0];
+
+  if (!titulo) { toast('Escribe un título', 'error'); return; }
+  if (!file) { toast('Elige un archivo MP4', 'error'); return; }
+  if (file.size > 500 * 1024 * 1024) {
+    if (!confirm('El archivo pesa más de 500MB. ¿Continuar de todos modos?')) return;
+  }
+
+  const btn = document.getElementById('claseSubirBtn');
+  const progWrap = document.getElementById('claseProgreso');
+  const progBar = document.getElementById('claseProgresoBar');
+  const progPct = document.getElementById('claseProgresoPct');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Subiendo...';
+  progWrap.style.display = 'block';
+
+  const claseNum = String(orden).padStart(2, '0');
+  const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
+  const storagePath = `cursos/${slug}/clase-${claseNum}.${ext}`;
+
+  try {
+    const storageRef = storage.ref(storagePath);
+    const uploadTask = storageRef.put(file, { contentType: file.type });
+
+    uploadTask.on('state_changed',
+      (snapshot) => {
+        const pct = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        progBar.style.width = pct + '%';
+        progPct.textContent = Math.round(pct) + '%';
+      },
+      (err) => {
+        console.error(err);
+        toast('Error subiendo: ' + err.message, 'error');
+        btn.disabled = false;
+        btn.innerHTML = '🚀 Subir clase';
+        progWrap.style.display = 'none';
+      },
+      async () => {
+        // Subida completa → registrar en el curso
+        const curso = STATE.cursosVenta.find(c => c.id === slug);
+        const clases = Array.isArray(curso?.clases) ? [...curso.clases] : [];
+        clases.push({
+          titulo,
+          duracionMin: duracion,
+          orden,
+          descripcion: desc,
+          storagePath,
+          fileSize: file.size,
+          uploadedAt: new Date().toISOString()
+        });
+        // Ordenar por orden
+        clases.sort((a,b) => (a.orden||0) - (b.orden||0));
+        await db.collection('cursosVenta').doc(slug).update({ clases });
+        toast(`✅ Clase "${titulo}" subida`, 'success');
+        cerrarModal();
+        setTimeout(() => abrirModalClases(slug), 200);
+      }
+    );
+  } catch (err) {
+    console.error(err);
+    toast('Error: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.innerHTML = '🚀 Subir clase';
+    progWrap.style.display = 'none';
+  }
+};
+
+window.editarClase = function(slug, index) {
+  const curso = STATE.cursosVenta.find(c => c.id === slug);
+  if (!curso) return;
+  const cl = curso.clases[index];
+  if (!cl) return;
+
+  abrirModal(`
+    <div class="modal-head">
+      <h3>✏️ Editar clase</h3>
+      <button class="modal-close" onclick="cerrarModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Título *</label>
+        <input type="text" id="editClaseTitulo" value="${escapeHTML(cl.titulo || '')}">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Duración (min)</label>
+          <input type="number" id="editClaseDuracion" value="${cl.duracionMin || 0}" min="0">
+        </div>
+        <div class="field">
+          <label>Orden</label>
+          <input type="number" id="editClaseOrden" value="${cl.orden || (index+1)}" min="1">
+        </div>
+      </div>
+      <div class="field">
+        <label>Descripción</label>
+        <textarea id="editClaseDesc" rows="2">${escapeHTML(cl.descripcion || '')}</textarea>
+      </div>
+      <div class="field">
+        <label>Archivo actual</label>
+        <div style="padding:10px;background:rgba(255,255,255,.04);border-radius:8px;font-family:monospace;font-size:.78rem;color:var(--text-mute);">${escapeHTML(cl.storagePath || 'Sin archivo')}</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="action-btn action-btn--ghost" onclick="cerrarModal()">Cancelar</button>
+      <button class="action-btn action-btn--gold" onclick="guardarEdicionClase('${slug}', ${index})">Guardar</button>
+    </div>
+  `);
+};
+
+window.guardarEdicionClase = async function(slug, index) {
+  const curso = STATE.cursosVenta.find(c => c.id === slug);
+  if (!curso) return;
+  const clases = [...(curso.clases || [])];
+  clases[index] = {
+    ...clases[index],
+    titulo: document.getElementById('editClaseTitulo').value.trim(),
+    duracionMin: Number(document.getElementById('editClaseDuracion').value) || 0,
+    orden: Number(document.getElementById('editClaseOrden').value) || (index + 1),
+    descripcion: document.getElementById('editClaseDesc').value.trim()
+  };
+  clases.sort((a,b) => (a.orden||0) - (b.orden||0));
+  await db.collection('cursosVenta').doc(slug).update({ clases });
+  cerrarModal();
+  toast('Clase actualizada', 'success');
+  setTimeout(() => abrirModalClases(slug), 200);
+};
+
+window.eliminarClase = async function(slug, index) {
+  const curso = STATE.cursosVenta.find(c => c.id === slug);
+  if (!curso) return;
+  const cl = curso.clases?.[index];
+  if (!cl) return;
+  if (!confirm(`¿Eliminar la clase "${cl.titulo}"?\n\nEsto también borra el video del storage. No se puede deshacer.`)) return;
+
+  try {
+    if (cl.storagePath) {
+      try { await storage.ref(cl.storagePath).delete(); } catch (e) { console.warn('Storage delete:', e); }
+    }
+    const clases = curso.clases.filter((_, i) => i !== index);
+    await db.collection('cursosVenta').doc(slug).update({ clases });
+    toast('Clase eliminada', 'success');
+    setTimeout(() => abrirModalClases(slug), 200);
+  } catch (err) {
+    console.error(err);
+    toast('Error: ' + err.message, 'error');
+  }
+};
+
+// ─── RECURSOS DESCARGABLES (PDF, Excel) ────────────────────────
+window.abrirModalRecursos = function(slug) {
+  const curso = STATE.cursosVenta.find(c => c.id === slug);
+  if (!curso) return;
+  const recursos = Array.isArray(curso.recursosDescargables) ? curso.recursosDescargables : [];
+
+  abrirModal(`
+    <div class="modal-head">
+      <h3>📎 Recursos · ${escapeHTML(curso.nombre || slug)}</h3>
+      <button class="modal-close" onclick="cerrarModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:rgba(212,160,23,.08);border:1px solid rgba(212,160,23,.28);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:.85rem;line-height:1.5;">
+        💡 <b>Cómo funciona:</b> sube PDF, Excel o cualquier archivo descargable. Los alumnos con acceso los verán en su panel de curso.
+      </div>
+
+      ${recursos.length === 0 ? `
+        <div class="empty-state" style="padding:24px;">
+          <div class="empty-state-icon">📎</div>
+          <h3>Sin recursos aún</h3>
+        </div>
+      ` : recursos.map((r, i) => `
+        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:14px;">
+          <div style="width:36px;height:36px;border-radius:10px;background:${r.tipo === 'xlsx' || r.tipo === 'excel' ? 'linear-gradient(135deg,#16a34a,#14532d)' : 'linear-gradient(135deg,#dc2626,#991b1b)'};color:#fff;font-weight:800;display:grid;place-items:center;flex-shrink:0;">${(r.tipo || 'PDF').toUpperCase().slice(0,3)}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;color:var(--text);margin-bottom:2px;">${escapeHTML(r.titulo || 'Recurso ' + (i+1))}</div>
+            <div style="font-size:.72rem;color:var(--text-mute);">${escapeHTML(r.descripcion || '')}</div>
+          </div>
+          <a href="${escapeHTML(r.url || '#')}" target="_blank" class="action-btn action-btn--ghost">🔗</a>
+          <button class="action-btn action-btn--danger" onclick="eliminarRecurso('${slug}', ${i})">🗑</button>
+        </div>
+      `).join('')}
+
+      <div style="border-top:1px solid rgba(255,255,255,.08);margin-top:20px;padding-top:20px;">
+        <h4 style="margin-bottom:14px;color:var(--gold-light);">+ Agregar recurso</h4>
+        <div class="field">
+          <label>Título *</label>
+          <input type="text" id="recTitulo" placeholder="Ej. Recetario de Embutidos">
+        </div>
+        <div class="field">
+          <label>Descripción</label>
+          <input type="text" id="recDesc" placeholder="4 recetas + guía de higiene">
+        </div>
+        <div class="field">
+          <label>Tipo</label>
+          <select id="recTipo">
+            <option value="pdf">PDF</option>
+            <option value="xlsx">Excel (XLSX)</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Archivo *</label>
+          <input type="file" id="recArchivo" style="padding:10px;">
+        </div>
+        <div id="recProgreso" style="display:none;margin:12px 0;">
+          <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:6px;">
+            <span>Subiendo...</span>
+            <span id="recProgresoPct">0%</span>
+          </div>
+          <div style="height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;">
+            <div id="recProgresoBar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--gold),var(--gold-light));transition:width .3s;"></div>
+          </div>
+        </div>
+        <button class="action-btn action-btn--gold" id="recSubirBtn" onclick="subirRecurso('${slug}')" style="width:100%;">
+          🚀 Subir recurso
+        </button>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="action-btn action-btn--ghost" onclick="cerrarModal()">Cerrar</button>
+    </div>
+  `);
+};
+
+window.subirRecurso = async function(slug) {
+  const titulo = document.getElementById('recTitulo').value.trim();
+  const desc = document.getElementById('recDesc').value.trim();
+  const tipo = document.getElementById('recTipo').value;
+  const file = document.getElementById('recArchivo').files[0];
+
+  if (!titulo) { toast('Escribe un título', 'error'); return; }
+  if (!file) { toast('Elige un archivo', 'error'); return; }
+
+  const btn = document.getElementById('recSubirBtn');
+  const progWrap = document.getElementById('recProgreso');
+  const progBar = document.getElementById('recProgresoBar');
+  const progPct = document.getElementById('recProgresoPct');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Subiendo...';
+  progWrap.style.display = 'block';
+
+  const safeName = file.name.replace(/[^a-z0-9.-]/gi, '_');
+  const storagePath = `cursos/${slug}/recursos/${Date.now()}-${safeName}`;
+
+  try {
+    const uploadTask = storage.ref(storagePath).put(file, { contentType: file.type });
+    uploadTask.on('state_changed',
+      (snapshot) => {
+        const pct = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        progBar.style.width = pct + '%';
+        progPct.textContent = Math.round(pct) + '%';
+      },
+      (err) => {
+        toast('Error: ' + err.message, 'error');
+        btn.disabled = false;
+        btn.innerHTML = '🚀 Subir recurso';
+        progWrap.style.display = 'none';
+      },
+      async () => {
+        const url = await uploadTask.snapshot.ref.getDownloadURL();
+        const curso = STATE.cursosVenta.find(c => c.id === slug);
+        const recursos = Array.isArray(curso?.recursosDescargables) ? [...curso.recursosDescargables] : [];
+        recursos.push({ titulo, descripcion: desc, tipo, url, storagePath, uploadedAt: new Date().toISOString() });
+        await db.collection('cursosVenta').doc(slug).update({ recursosDescargables: recursos });
+        toast(`✅ Recurso "${titulo}" subido`, 'success');
+        cerrarModal();
+        setTimeout(() => abrirModalRecursos(slug), 200);
+      }
+    );
+  } catch (err) {
+    toast('Error: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.innerHTML = '🚀 Subir recurso';
+    progWrap.style.display = 'none';
+  }
+};
+
+window.eliminarRecurso = async function(slug, index) {
+  const curso = STATE.cursosVenta.find(c => c.id === slug);
+  if (!curso) return;
+  const r = curso.recursosDescargables?.[index];
+  if (!r) return;
+  if (!confirm(`¿Eliminar "${r.titulo}"?`)) return;
+  try {
+    if (r.storagePath) {
+      try { await storage.ref(r.storagePath).delete(); } catch(e){}
+    }
+    const recursos = curso.recursosDescargables.filter((_, i) => i !== index);
+    await db.collection('cursosVenta').doc(slug).update({ recursosDescargables: recursos });
+    toast('Recurso eliminado', 'success');
+    setTimeout(() => abrirModalRecursos(slug), 200);
+  } catch(err) {
+    toast('Error: ' + err.message, 'error');
+  }
 };
 
 // ═══════════════════════════════════════════════════════════
