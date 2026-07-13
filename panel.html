@@ -2908,8 +2908,19 @@ window.abrirModalClases = function(slug) {
     </div>
     <div class="modal-body">
       <div style="background:rgba(212,160,23,.08);border:1px solid rgba(212,160,23,.28);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:.85rem;line-height:1.5;">
-        💡 <b>Cómo funciona:</b> arrastra o elige un MP4. Se sube a Firebase Storage en <code>cursos/${escapeHTML(slug)}/clase-XX.mp4</code> y se registra en el curso. Solo alumnos con acceso confirmado podrán verlo.
+        💡 <b>Cómo funciona:</b> pega un link de Google Drive de tu video (con permiso "Cualquiera con el enlace"). Solo alumnos con acceso confirmado podrán verlo desde su panel del curso.
       </div>
+
+      ${clases.length > 0 ? `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding:10px 14px;background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.20);border-radius:10px;">
+          <div style="font-size:.82rem;color:var(--text-mute);">
+            <b style="color:var(--text);">${clases.length}</b> clase${clases.length===1?'':'s'} registrada${clases.length===1?'':'s'}
+          </div>
+          <button class="action-btn action-btn--danger" onclick="eliminarTodasLasClases('${slug}')" style="font-size:.78rem;">
+            🗑 Eliminar todas
+          </button>
+        </div>
+      ` : ''}
 
       <div id="clasesList">
         ${clases.length === 0 ? `
@@ -3118,6 +3129,26 @@ window.eliminarClase = async function(slug, index) {
   }
 };
 
+// ─── ELIMINAR TODAS LAS CLASES DE UN CURSO ────────────────────────
+window.eliminarTodasLasClases = async function(slug) {
+  const curso = STATE.cursosVenta.find(c => c.id === slug);
+  if (!curso) return;
+  const total = (curso.clases || []).length;
+  if (total === 0) { toast('No hay clases para eliminar', 'info'); return; }
+
+  const msg = `⚠️ ¿Eliminar TODAS las ${total} clases de "${curso.nombre || slug}"?\n\nSe borrarán del panel del curso.\nLos videos en Drive NO se tocan, siguen en tu Drive.\n\nEsta acción no se puede deshacer.`;
+  if (!confirm(msg)) return;
+
+  try {
+    await db.collection('cursosVenta').doc(slug).update({ clases: [] });
+    toast(`✅ ${total} clase${total===1?'':'s'} eliminada${total===1?'':'s'}`, 'success');
+    setTimeout(() => abrirModalClases(slug), 200);
+  } catch (err) {
+    console.error(err);
+    toast('Error: ' + err.message, 'error');
+  }
+};
+
 // ─── RECURSOS DESCARGABLES (PDF, Excel) ────────────────────────
 window.abrirModalRecursos = function(slug) {
   const curso = STATE.cursosVenta.find(c => c.id === slug);
@@ -3131,8 +3162,19 @@ window.abrirModalRecursos = function(slug) {
     </div>
     <div class="modal-body">
       <div style="background:rgba(212,160,23,.08);border:1px solid rgba(212,160,23,.28);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:.85rem;line-height:1.5;">
-        💡 <b>Cómo funciona:</b> sube PDF, Excel o cualquier archivo descargable. Los alumnos con acceso los verán en su panel de curso.
+        💡 <b>Cómo funciona:</b> pega el link de Drive de tu PDF o Excel (con permiso "Cualquiera con el enlace"). Los alumnos con acceso los verán y descargarán desde su panel.
       </div>
+
+      ${recursos.length > 0 ? `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding:10px 14px;background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.20);border-radius:10px;">
+          <div style="font-size:.82rem;color:var(--text-mute);">
+            <b style="color:var(--text);">${recursos.length}</b> recurso${recursos.length===1?'':'s'}
+          </div>
+          <button class="action-btn action-btn--danger" onclick="eliminarTodosLosRecursos('${slug}')" style="font-size:.78rem;">
+            🗑 Eliminar todos
+          </button>
+        </div>
+      ` : ''}
 
       ${recursos.length === 0 ? `
         <div class="empty-state" style="padding:24px;">
@@ -3250,6 +3292,25 @@ window.eliminarRecurso = async function(slug, index) {
     toast('Recurso eliminado', 'success');
     setTimeout(() => abrirModalRecursos(slug), 200);
   } catch(err) {
+    toast('Error: ' + err.message, 'error');
+  }
+};
+
+// ─── ELIMINAR TODOS LOS RECURSOS ─────────────────────────────
+window.eliminarTodosLosRecursos = async function(slug) {
+  const curso = STATE.cursosVenta.find(c => c.id === slug);
+  if (!curso) return;
+  const total = (curso.recursosDescargables || []).length;
+  if (total === 0) { toast('No hay recursos para eliminar', 'info'); return; }
+
+  const msg = `⚠️ ¿Eliminar TODOS los ${total} recursos de "${curso.nombre || slug}"?\n\nSe borran del panel. Los archivos en Drive NO se tocan.\n\nEsta acción no se puede deshacer.`;
+  if (!confirm(msg)) return;
+
+  try {
+    await db.collection('cursosVenta').doc(slug).update({ recursosDescargables: [] });
+    toast(`✅ ${total} recurso${total===1?'':'s'} eliminado${total===1?'':'s'}`, 'success');
+    setTimeout(() => abrirModalRecursos(slug), 200);
+  } catch (err) {
     toast('Error: ' + err.message, 'error');
   }
 };
