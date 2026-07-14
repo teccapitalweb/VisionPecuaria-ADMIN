@@ -1049,6 +1049,11 @@ input, textarea, select { font-family: inherit; outline: none; }
       <span class="sb-nav-icon">🛒</span>
       <span class="sb-nav-label">Cursos en Venta</span>
     </button>
+    <button class="sb-nav-item" data-page="inscripciones">
+      <span class="sb-nav-icon">📝</span>
+      <span class="sb-nav-label">Inscripciones</span>
+      <span class="sb-nav-badge" id="badgeInscripciones" style="display:none">0</span>
+    </button>
     <button class="sb-nav-item" data-page="instructores">
       <span class="sb-nav-icon">🎤</span>
       <span class="sb-nav-label">Instructores</span>
@@ -1280,6 +1285,7 @@ const PAGE_META = {
   webinars: { title: '📡 Sesiones en vivo', sub: 'Programa webinars y eventos en directo' },
   certificados: { title: '🎖️ Certificados', sub: 'Emisión y verificación de constancias' },
   cursosVenta: { title: '🛒 Cursos en Venta', sub: 'Gestiona precios, cupos, videoclases y ventas' },
+  inscripciones: { title: '📝 Inscripciones', sub: 'Alumnos inscritos en los cursos · Datos listos para IPCIL' },
   instructores: { title: '🎤 Instructores', sub: 'Ponentes reutilizables entre cursos' },
   estadisticas: { title: '📊 Estadísticas', sub: 'Métricas y análisis de la plataforma' },
   pagos: { title: '💰 Pagos', sub: 'Historial completo de transacciones' },
@@ -2678,10 +2684,10 @@ function renderCursosVenta() {
                   </td>
                   <td>
                     <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                      <button class="action-btn action-btn--ghost" onclick="abrirModalEditarCurso('${c.id}')" title="Editar">✏️</button>
-                      <button class="action-btn action-btn--ghost" onclick="abrirModalClases('${c.id}')" title="Clases">🎥</button>
-                      <button class="action-btn action-btn--ghost" onclick="abrirModalRecursos('${c.id}')" title="Recursos">📎</button>
-                      <button class="action-btn action-btn--ghost" onclick="abrirModalVentasCurso('${c.id}')" title="Ventas">💰</button>
+                      <button class="action-btn action-btn--ghost" onclick="abrirModalEditarCurso('${c.id}')" title="Editar datos del curso">✏️</button>
+                      <button class="action-btn action-btn--ghost" onclick="abrirModalClases('${c.id}')" title="Videoclases">🎥</button>
+                      <button class="action-btn action-btn--ghost" onclick="abrirModalRecursos('${c.id}')" title="Recursos descargables">📎</button>
+                      <button class="action-btn action-btn--ghost" onclick="abrirModalInscritosCurso('${c.id}')" title="Ver alumnos inscritos">👥</button>
                     </div>
                   </td>
                 </tr>
@@ -3590,6 +3596,432 @@ window.eliminarInstructor = async function(instructorId) {
     console.error(err);
     toast('Error al eliminar: ' + err.message, 'error');
   }
+};
+
+// ═══════════════════════════════════════════════════════════
+// 📝 INSCRIPCIONES (alumnos que compraron cursos)
+// ═══════════════════════════════════════════════════════════
+PAGES.inscripciones = function() { renderInscripciones(); };
+
+// Estado interno del módulo (filtros)
+window.__inscripcionesState = { filtroCurso: 'todos', busqueda: '' };
+
+function renderInscripciones() {
+  const compras = STATE.comprasCurso || [];
+  const cursos = STATE.cursosVenta || [];
+  const st = window.__inscripcionesState;
+
+  // Filtrar
+  let filtradas = compras.slice();
+  if (st.filtroCurso && st.filtroCurso !== 'todos') {
+    filtradas = filtradas.filter(c => c.slug === st.filtroCurso);
+  }
+  if (st.busqueda) {
+    const q = st.busqueda.toLowerCase();
+    filtradas = filtradas.filter(c =>
+      (c.nombre || '').toLowerCase().includes(q) ||
+      (c.email || '').toLowerCase().includes(q) ||
+      (c.whatsapp || '').includes(q)
+    );
+  }
+
+  // Stats
+  const totalInscritos = compras.length;
+  const totalIngresos = compras.reduce((s, c) => s + (c.montoCentavos || c.monto || 0), 0);
+
+  // Actualizar badge
+  const badge = document.getElementById('badgeInscripciones');
+  if (badge) {
+    if (totalInscritos > 0) { badge.style.display = ''; badge.textContent = totalInscritos; }
+    else badge.style.display = 'none';
+  }
+
+  // Agrupar por curso (para vista "por curso")
+  const porCurso = {};
+  compras.forEach(c => {
+    const slug = c.slug || 'sin-curso';
+    if (!porCurso[slug]) porCurso[slug] = [];
+    porCurso[slug].push(c);
+  });
+
+  document.getElementById('content').innerHTML = `
+    <div class="page-head">
+      <div>
+        <h1>📝 Inscripciones <span style="font-size:.7em;color:var(--text-mute);font-weight:600;">${totalInscritos}</span></h1>
+        <p>Alumnos inscritos en los cursos. Datos listos para descargar y subir a IPCIL.</p>
+      </div>
+      <button class="action-btn action-btn--gold" onclick="exportarInscripcionesCSV()" ${filtradas.length === 0 ? 'disabled' : ''}>
+        📥 Exportar CSV
+      </button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:22px;">
+      <div class="block" style="text-align:center;">
+        <div style="font-size:2rem;line-height:1;">📝</div>
+        <div style="font-size:1.8rem;font-weight:800;color:var(--gold-light);margin-top:8px;">${totalInscritos}</div>
+        <div style="color:var(--text-mute);font-size:.85rem;">Alumnos inscritos</div>
+      </div>
+      <div class="block" style="text-align:center;">
+        <div style="font-size:2rem;line-height:1;">💰</div>
+        <div style="font-size:1.8rem;font-weight:800;color:var(--gold-light);margin-top:8px;">$${(totalIngresos/100).toLocaleString('es-MX')}</div>
+        <div style="color:var(--text-mute);font-size:.85rem;">Ingresos totales MXN</div>
+      </div>
+      <div class="block" style="text-align:center;">
+        <div style="font-size:2rem;line-height:1;">🎓</div>
+        <div style="font-size:1.8rem;font-weight:800;color:var(--gold-light);margin-top:8px;">${Object.keys(porCurso).length}</div>
+        <div style="color:var(--text-mute);font-size:.85rem;">Cursos con inscritos</div>
+      </div>
+    </div>
+
+    ${compras.length === 0 ? `
+      <div class="block">
+        <div class="empty-state">
+          <div class="empty-state-icon">📝</div>
+          <h3>Sin inscripciones aún</h3>
+          <p>Cuando alguien compre un curso, aparecerá aquí con todos sus datos listos para enviar a IPCIL.</p>
+        </div>
+      </div>
+    ` : `
+      <!-- Filtros -->
+      <div class="block" style="margin-bottom:14px;">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+          <div style="flex:1;min-width:240px;">
+            <input type="text" placeholder="🔍 Buscar por nombre, email o WhatsApp..."
+              value="${escapeHTML(st.busqueda)}"
+              oninput="window.__inscripcionesState.busqueda=this.value;renderInscripciones();"
+              style="width:100%;">
+          </div>
+          <select onchange="window.__inscripcionesState.filtroCurso=this.value;renderInscripciones();" style="min-width:220px;">
+            <option value="todos" ${st.filtroCurso === 'todos' ? 'selected' : ''}>— Todos los cursos —</option>
+            ${cursos.map(c => `
+              <option value="${escapeHTML(c.id)}" ${st.filtroCurso === c.id ? 'selected' : ''}>
+                ${escapeHTML(c.nombre || c.id)} (${(porCurso[c.id] || []).length})
+              </option>
+            `).join('')}
+          </select>
+        </div>
+        ${filtradas.length !== compras.length ? `
+          <div style="margin-top:10px;color:var(--text-mute);font-size:.85rem;">
+            Mostrando ${filtradas.length} de ${compras.length} inscripciones
+          </div>
+        ` : ''}
+      </div>
+
+      ${filtradas.length === 0 ? `
+        <div class="block">
+          <div class="empty-state">
+            <div class="empty-state-icon">🔍</div>
+            <h3>Sin resultados</h3>
+            <p>Prueba con otros filtros o palabras de búsqueda.</p>
+          </div>
+        </div>
+      ` : `
+        <!-- Tabla de inscripciones -->
+        <div class="block" style="padding:0;overflow:hidden;">
+          <table class="data-table" style="margin:0;">
+            <thead>
+              <tr>
+                <th>Alumno</th>
+                <th>WhatsApp</th>
+                <th>Curso</th>
+                <th>Fecha</th>
+                <th>Monto</th>
+                <th style="text-align:center;">Copiar</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filtradas.map(c => {
+                const nombreCurso = (cursos.find(x => x.id === c.slug) || {}).nombre || c.slug || 'Sin curso';
+                const fecha = c.fechaCompra
+                  ? (c.fechaCompra.toDate ? c.fechaCompra.toDate() : new Date(c.fechaCompra))
+                  : null;
+                const fechaStr = fecha ? fecha.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+                const monto = c.montoCentavos ? '$' + (c.montoCentavos/100).toLocaleString('es-MX') : (c.monto ? '$' + c.monto : '—');
+                const nombre = c.nombre || '—';
+                const email = c.email || '—';
+                const wa = c.whatsapp || c.telefono || '—';
+                const idSafe = (c.id || '').replace(/[^a-zA-Z0-9]/g, '');
+                return `
+                  <tr>
+                    <td>
+                      <div style="font-weight:700;color:#fff;">${escapeHTML(nombre)}</div>
+                      <div style="font-size:.82rem;color:var(--text-soft);">${escapeHTML(email)}</div>
+                    </td>
+                    <td style="font-family:monospace;color:var(--text-soft);">${escapeHTML(wa)}</td>
+                    <td>
+                      <div style="font-size:.9rem;color:var(--text-soft);">${escapeHTML(nombreCurso.substring(0,40))}${nombreCurso.length > 40 ? '…' : ''}</div>
+                    </td>
+                    <td style="font-size:.85rem;color:var(--text-mute);">${fechaStr}</td>
+                    <td style="font-weight:700;color:var(--gold-light);">${monto}</td>
+                    <td style="text-align:center;">
+                      <button class="action-btn action-btn--sm" onclick="copiarInscripcion('${idSafe}')" title="Copiar nombre, email y WhatsApp">📋</button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `}
+    `}
+  `;
+
+  // Guardar refs para copiar
+  window.__inscripcionesRefs = {};
+  filtradas.forEach(c => {
+    const idSafe = (c.id || '').replace(/[^a-zA-Z0-9]/g, '');
+    window.__inscripcionesRefs[idSafe] = c;
+  });
+}
+
+// Copiar UNA inscripción al portapapeles (formato tab-separated para Excel/Sheets)
+window.copiarInscripcion = function(idSafe) {
+  const c = (window.__inscripcionesRefs || {})[idSafe];
+  if (!c) return;
+  const nombre = c.nombre || '';
+  const email = c.email || '';
+  const wa = c.whatsapp || c.telefono || '';
+  // Tab-separated (una fila lista para Excel)
+  const texto = `${nombre}\t${email}\t${wa}`;
+  navigator.clipboard.writeText(texto).then(() => {
+    toast(`Copiado: ${nombre}`, 'success');
+  }).catch(err => {
+    toast('Error al copiar: ' + err.message, 'error');
+  });
+};
+
+// Exportar CSV de las inscripciones actualmente filtradas
+window.exportarInscripcionesCSV = function() {
+  const st = window.__inscripcionesState;
+  const compras = STATE.comprasCurso || [];
+  const cursos = STATE.cursosVenta || [];
+
+  let datos = compras.slice();
+  if (st.filtroCurso && st.filtroCurso !== 'todos') datos = datos.filter(c => c.slug === st.filtroCurso);
+  if (st.busqueda) {
+    const q = st.busqueda.toLowerCase();
+    datos = datos.filter(c =>
+      (c.nombre || '').toLowerCase().includes(q) ||
+      (c.email || '').toLowerCase().includes(q) ||
+      (c.whatsapp || '').includes(q)
+    );
+  }
+
+  if (datos.length === 0) { toast('No hay datos para exportar', 'error'); return; }
+
+  // Cabecera + filas
+  const rows = [['Nombre completo', 'Email', 'WhatsApp', 'Curso', 'Fecha compra', 'Monto MXN', 'Session ID']];
+  datos.forEach(c => {
+    const nombreCurso = (cursos.find(x => x.id === c.slug) || {}).nombre || c.slug || '';
+    const fecha = c.fechaCompra
+      ? (c.fechaCompra.toDate ? c.fechaCompra.toDate() : new Date(c.fechaCompra))
+      : null;
+    const fechaStr = fecha ? fecha.toISOString().substring(0, 10) : '';
+    const monto = c.montoCentavos ? (c.montoCentavos/100).toFixed(2) : (c.monto || '');
+    rows.push([
+      c.nombre || '',
+      c.email || '',
+      c.whatsapp || c.telefono || '',
+      nombreCurso,
+      fechaStr,
+      monto,
+      c.id || c.sessionId || ''
+    ]);
+  });
+
+  // Convertir a CSV con manejo de comas y comillas
+  const csv = rows.map(row => row.map(cell => {
+    const s = String(cell || '');
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }).join(',')).join('\n');
+
+  // BOM UTF-8 para que Excel abra bien los acentos
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const filtro = st.filtroCurso === 'todos' ? 'todos-los-cursos' : st.filtroCurso;
+  const fechaHoy = new Date().toISOString().substring(0, 10);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `inscripciones-${filtro}-${fechaHoy}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast(`CSV con ${datos.length} inscripciones descargado`, 'success');
+};
+
+// ═══════════════════════════════════════════════════════════
+// 👥 MODAL DE INSCRITOS POR CURSO (desde botón en fila del curso)
+// ═══════════════════════════════════════════════════════════
+window.abrirModalInscritosCurso = function(slug) {
+  const curso = STATE.cursosVenta.find(c => c.id === slug);
+  const nombreCurso = curso?.nombre || slug;
+  const inscritos = STATE.comprasCurso.filter(c => c.slug === slug);
+  const totalIngresos = inscritos.reduce((s, c) => s + (c.montoCentavos || c.monto || 0), 0);
+
+  window.__inscritosCursoActual = { slug, inscritos };
+
+  abrirModal(`
+    <div class="modal-head">
+      <h3>
+        <span style="font-size:1.4rem;">👥</span>
+        Alumnos inscritos
+      </h3>
+      <button class="modal-close" onclick="cerrarModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="padding:16px 20px;background:rgba(212,160,23,.08);border-radius:12px;margin-bottom:20px;border:1px solid rgba(212,160,23,.15);">
+        <div style="font-weight:800;color:#fff;margin-bottom:6px;">${escapeHTML(nombreCurso)}</div>
+        <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:.88rem;color:var(--text-soft);">
+          <div><b style="color:var(--gold-light);">${inscritos.length}</b> ${inscritos.length === 1 ? 'alumno inscrito' : 'alumnos inscritos'}</div>
+          <div><b style="color:var(--gold-light);">$${(totalIngresos/100).toLocaleString('es-MX')}</b> MXN en ingresos</div>
+        </div>
+      </div>
+
+      ${inscritos.length === 0 ? `
+        <div style="text-align:center;padding:40px 20px;color:var(--text-mute);">
+          <div style="font-size:3rem;margin-bottom:12px;">📭</div>
+          <div style="font-weight:700;color:var(--text-soft);margin-bottom:6px;">Sin inscripciones todavía</div>
+          <div style="font-size:.9rem;">Cuando alguien compre este curso, aparecerá aquí.</div>
+        </div>
+      ` : `
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+          <button class="action-btn action-btn--gold" onclick="copiarTodosLosInscritos('${escapeHTML(slug)}')">
+            📋 Copiar todos (para Excel)
+          </button>
+          <button class="action-btn action-btn--ghost" onclick="exportarInscritosCursoCSV('${escapeHTML(slug)}')">
+            📥 Descargar CSV
+          </button>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px;max-height:60vh;overflow-y:auto;padding-right:6px;">
+          ${inscritos.map((c, idx) => {
+            const fecha = c.fechaCompra
+              ? (c.fechaCompra.toDate ? c.fechaCompra.toDate() : new Date(c.fechaCompra))
+              : null;
+            const fechaStr = fecha ? fecha.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+            const monto = c.montoCentavos ? '$' + (c.montoCentavos/100).toLocaleString('es-MX') : '';
+            return `
+              <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:16px 18px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:12px;flex-wrap:wrap;">
+                  <div style="flex:1;min-width:200px;">
+                    <div style="font-weight:800;color:#fff;font-size:1.05rem;letter-spacing:-.01em;">
+                      ${escapeHTML(c.nombre || 'Sin nombre')}
+                    </div>
+                    <div style="color:var(--text-mute);font-size:.78rem;margin-top:2px;">
+                      Alumno #${idx + 1} · ${fechaStr} · ${monto}
+                    </div>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:rgba(0,0,0,.25);border-radius:10px;">
+                    <div style="min-width:0;flex:1;">
+                      <div style="font-size:.68rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">Nombre</div>
+                      <div style="color:var(--text-soft);font-size:.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(c.nombre || '—')}</div>
+                    </div>
+                    <button class="action-btn action-btn--sm" onclick="copiarDato(this, \`${escapeHTML((c.nombre || '').replace(/`/g, '\\`'))}\`)" title="Copiar nombre">📋</button>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:rgba(0,0,0,.25);border-radius:10px;">
+                    <div style="min-width:0;flex:1;">
+                      <div style="font-size:.68rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">Email</div>
+                      <div style="color:var(--text-soft);font-size:.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;">${escapeHTML(c.email || '—')}</div>
+                    </div>
+                    <button class="action-btn action-btn--sm" onclick="copiarDato(this, \`${escapeHTML((c.email || '').replace(/`/g, '\\`'))}\`)" title="Copiar email">📋</button>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:rgba(0,0,0,.25);border-radius:10px;">
+                    <div style="min-width:0;flex:1;">
+                      <div style="font-size:.68rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">WhatsApp</div>
+                      <div style="color:var(--text-soft);font-size:.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;">${escapeHTML(c.whatsapp || c.telefono || '—')}</div>
+                    </div>
+                    <button class="action-btn action-btn--sm" onclick="copiarDato(this, \`${escapeHTML(((c.whatsapp || c.telefono) || '').replace(/`/g, '\\`'))}\`)" title="Copiar WhatsApp">📋</button>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `}
+    </div>
+    <div class="modal-foot">
+      <button class="action-btn action-btn--ghost" onclick="cerrarModal()">Cerrar</button>
+    </div>
+  `);
+};
+
+// Copiar UN dato individual (nombre, email o whatsapp)
+window.copiarDato = function(btn, texto) {
+  navigator.clipboard.writeText(texto).then(() => {
+    const original = btn.textContent;
+    btn.textContent = '✓';
+    btn.style.background = 'rgba(16,185,129,.2)';
+    setTimeout(() => {
+      btn.textContent = original;
+      btn.style.background = '';
+    }, 1200);
+  }).catch(err => {
+    toast('Error al copiar: ' + err.message, 'error');
+  });
+};
+
+// Copiar todos los inscritos de un curso (tab-separated para pegar en Excel)
+window.copiarTodosLosInscritos = function(slug) {
+  const inscritos = STATE.comprasCurso.filter(c => c.slug === slug);
+  if (inscritos.length === 0) { toast('Sin datos para copiar', 'error'); return; }
+  // Encabezado + filas separadas por tab (formato Excel/Sheets)
+  const filas = ['Nombre\tEmail\tWhatsApp'];
+  inscritos.forEach(c => {
+    filas.push(`${c.nombre || ''}\t${c.email || ''}\t${c.whatsapp || c.telefono || ''}`);
+  });
+  const texto = filas.join('\n');
+  navigator.clipboard.writeText(texto).then(() => {
+    toast(`${inscritos.length} inscritos copiados. Pégalos en Excel con Ctrl+V.`, 'success');
+  }).catch(err => {
+    toast('Error al copiar: ' + err.message, 'error');
+  });
+};
+
+// Descargar CSV solo de UN curso
+window.exportarInscritosCursoCSV = function(slug) {
+  const curso = STATE.cursosVenta.find(c => c.id === slug);
+  const nombreCurso = curso?.nombre || slug;
+  const inscritos = STATE.comprasCurso.filter(c => c.slug === slug);
+  if (inscritos.length === 0) { toast('Sin datos para exportar', 'error'); return; }
+
+  const rows = [['Nombre completo', 'Email', 'WhatsApp', 'Fecha compra', 'Monto MXN', 'Session ID']];
+  inscritos.forEach(c => {
+    const fecha = c.fechaCompra
+      ? (c.fechaCompra.toDate ? c.fechaCompra.toDate() : new Date(c.fechaCompra))
+      : null;
+    const fechaStr = fecha ? fecha.toISOString().substring(0, 10) : '';
+    const monto = c.montoCentavos ? (c.montoCentavos/100).toFixed(2) : (c.monto || '');
+    rows.push([
+      c.nombre || '',
+      c.email || '',
+      c.whatsapp || c.telefono || '',
+      fechaStr,
+      monto,
+      c.id || c.sessionId || ''
+    ]);
+  });
+
+  const csv = rows.map(row => row.map(cell => {
+    const s = String(cell || '');
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }).join(',')).join('\n');
+
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const fechaHoy = new Date().toISOString().substring(0, 10);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `inscritos-${slug}-${fechaHoy}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast(`CSV descargado (${inscritos.length} alumnos)`, 'success');
 };
 
 // ═══════════════════════════════════════════════════════════
