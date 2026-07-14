@@ -15,29 +15,90 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 
 <style>
-:root {
+:root, [data-theme="dark"] {
+  /* Fondos */
   --bg-deep: #060e0a;
   --bg-base: #0a1f12;
   --bg-card: #0f2818;
   --bg-card-hover: #143020;
   --bg-elevated: #1a3925;
+
+  /* Superficies transparentes (para overlays sobre bg) */
+  --surface-1: rgba(255,255,255,.03);
+  --surface-2: rgba(255,255,255,.05);
+  --surface-3: rgba(255,255,255,.08);
+  --surface-strong: rgba(255,255,255,.12);
+  --shadow-color: rgba(0,0,0,.4);
+
+  /* Bordes */
   --border: rgba(255,255,255,.08);
   --border-hover: rgba(212,160,23,.25);
+
+  /* Campos de formulario */
   --field-700: #1a5d3a;
   --field-800: #0f3d27;
+
+  /* Marca */
   --gold: #d4a017;
   --gold-light: #e8c465;
   --gold-soft: rgba(212,160,23,.12);
+  --gold-glow: rgba(212,160,23,.15);
   --leather: #6b4423;
+
+  /* Texto */
   --text: #fff;
   --text-soft: rgba(255,255,255,.7);
   --text-mute: rgba(255,255,255,.45);
+
+  /* Estado */
   --success: #22c55e;
+  --success-bg: rgba(34,197,94,.15);
   --error: #ef4444;
   --warn: #f59e0b;
+  --warn-bg: rgba(245,158,11,.15);
   --info: #3b82f6;
+
+  /* Sistema */
   --r-sm: 8px; --r: 12px; --r-md: 16px; --r-lg: 22px; --r-xl: 28px;
   --sb-w: 264px;
+}
+
+/* ═══ MODO DÍA (claro) ═══ */
+[data-theme="light"] {
+  --bg-deep: #f0f5f2;
+  --bg-base: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f4faf6;
+  --bg-elevated: #e8f2ec;
+
+  --surface-1: rgba(20,60,35,.03);
+  --surface-2: rgba(20,60,35,.05);
+  --surface-3: rgba(20,60,35,.08);
+  --surface-strong: rgba(20,60,35,.12);
+  --shadow-color: rgba(20,60,35,.10);
+
+  --border: rgba(20,60,35,.10);
+  --border-hover: rgba(184,134,15,.35);
+
+  --field-700: #4ea86f;
+  --field-800: #2d7a4a;
+
+  --gold: #b8860f;
+  --gold-light: #8a6100;
+  --gold-soft: rgba(184,134,15,.10);
+  --gold-glow: rgba(184,134,15,.20);
+  --leather: #6b4423;
+
+  --text: #0a1f12;
+  --text-soft: rgba(15,40,25,.72);
+  --text-mute: rgba(15,40,25,.48);
+
+  --success: #16a34a;
+  --success-bg: rgba(22,163,74,.12);
+  --error: #dc2626;
+  --warn: #d97706;
+  --warn-bg: rgba(217,119,6,.12);
+  --info: #2563eb;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
@@ -61,6 +122,45 @@ input, textarea, select { font-family: inherit; outline: none; }
 }
 .ambient-orb--1 { width: 600px; height: 600px; background: var(--field-700); top: -200px; left: -100px; }
 .ambient-orb--2 { width: 500px; height: 500px; background: var(--gold); bottom: -150px; right: -100px; opacity: .08; }
+
+/* Ocultar orbs en modo día (se ven raros contra fondo claro) */
+[data-theme="light"] .ambient-orb { opacity: 0.03; }
+[data-theme="light"] .ambient-orb--2 { opacity: 0.04; }
+
+/* Ajustes finos modo día: hacer más suaves las tablas y cards */
+[data-theme="light"] .data-table thead {
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+}
+[data-theme="light"] .data-table td, [data-theme="light"] .data-table th {
+  border-color: var(--border);
+}
+[data-theme="light"] .sb-nav-item.active,
+[data-theme="light"] .sb-nav-item[data-active="true"] {
+  background: var(--gold-glow);
+  color: var(--gold-light);
+}
+[data-theme="light"] .badge, [data-theme="light"] .sb-nav-badge {
+  background: var(--gold);
+  color: #fff;
+}
+[data-theme="light"] .action-btn--gold {
+  color: #fff;
+}
+[data-theme="light"] .modal-overlay {
+  background: rgba(15,40,25,.4);
+}
+[data-theme="light"] .cmdk-overlay {
+  background: rgba(15,40,25,.5);
+}
+[data-theme="light"] input, [data-theme="light"] textarea, [data-theme="light"] select {
+  background: var(--surface-1);
+  color: var(--text);
+  border-color: var(--border);
+}
+[data-theme="light"] input:focus, [data-theme="light"] textarea:focus, [data-theme="light"] select:focus {
+  background: #fff;
+}
 .ambient-grid {
   position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background-image:
@@ -124,14 +224,14 @@ input, textarea, select { font-family: inherit; outline: none; }
 .sb-search-input {
   width: 100%;
   padding: 9px 12px 9px 36px;
-  background: rgba(255,255,255,.04);
+  background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
-  color: #fff;
+  color: var(--text);
   font-size: .82rem;
   transition: border-color .2s, background .2s;
 }
-.sb-search-input:focus { border-color: var(--gold); background: rgba(255,255,255,.07); }
+.sb-search-input:focus { border-color: var(--gold); background: var(--surface-2); }
 .sb-search-input::placeholder { color: var(--text-mute); }
 .sb-search-icon {
   position: absolute; left: 26px; top: 50%; transform: translateY(-50%);
@@ -140,7 +240,7 @@ input, textarea, select { font-family: inherit; outline: none; }
 .sb-search-kbd {
   position: absolute; right: 22px; top: 50%; transform: translateY(-50%);
   font: 600 .65rem 'JetBrains Mono', monospace;
-  background: rgba(255,255,255,.06);
+  background: var(--surface-2);
   padding: 2px 5px;
   border-radius: 4px;
   color: var(--text-mute);
@@ -169,7 +269,7 @@ input, textarea, select { font-family: inherit; outline: none; }
   position: relative;
   margin-bottom: 1px;
 }
-.sb-nav-item:hover { background: rgba(255,255,255,.04); color: #fff; }
+.sb-nav-item:hover { background: var(--surface-1); color: var(--text); }
 .sb-nav-item.active {
   background: linear-gradient(90deg, rgba(212,160,23,.12), rgba(212,160,23,.02));
   color: var(--gold-light);
@@ -193,7 +293,7 @@ input, textarea, select { font-family: inherit; outline: none; }
 }
 .sb-nav-badge--alert {
   background: var(--error);
-  color: #fff;
+  color: var(--text);
   animation: pulseAlert 2s ease-in-out infinite;
 }
 @keyframes pulseAlert {
@@ -210,7 +310,7 @@ input, textarea, select { font-family: inherit; outline: none; }
   display: flex; align-items: center; gap: 10px;
   padding: 10px;
   border-radius: var(--r-sm);
-  background: rgba(255,255,255,.03);
+  background: var(--surface-1);
   border: 1px solid var(--border);
   margin-bottom: 8px;
 }
@@ -245,7 +345,7 @@ input, textarea, select { font-family: inherit; outline: none; }
   width: 100%; text-align: left;
   transition: background .2s, color .2s;
 }
-.sb-foot-btn:hover { background: rgba(255,255,255,.04); color: #fff; }
+.sb-foot-btn:hover { background: var(--surface-1); color: var(--text); }
 .sb-foot-btn--exit:hover { color: #fca5a5; background: rgba(239,68,68,.08); }
 
 /* ═══════════ MAIN ═══════════ */
@@ -267,10 +367,10 @@ input, textarea, select { font-family: inherit; outline: none; }
 .menu-toggle {
   display: none;
   width: 38px; height: 38px;
-  background: rgba(255,255,255,.05);
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
-  color: #fff;
+  color: var(--text);
   align-items: center; justify-content: center;
 }
 .topbar-breadcrumb {
@@ -290,7 +390,7 @@ input, textarea, select { font-family: inherit; outline: none; }
 .topbar-btn {
   height: 38px;
   padding: 0 14px;
-  background: rgba(255,255,255,.04);
+  background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
   color: var(--text-soft);
@@ -390,7 +490,7 @@ input, textarea, select { font-family: inherit; outline: none; }
 }
 .kpi-trend--up { background: rgba(34,197,94,.12); color: #4ade80; }
 .kpi-trend--down { background: rgba(239,68,68,.12); color: #f87171; }
-.kpi-trend--neutral { background: rgba(255,255,255,.05); color: var(--text-mute); }
+.kpi-trend--neutral { background: var(--surface-2); color: var(--text-mute); }
 .kpi-value {
   font: 800 1.9rem/1 'Plus Jakarta Sans', sans-serif;
   letter-spacing: -.5px;
@@ -435,7 +535,7 @@ input, textarea, select { font-family: inherit; outline: none; }
 }
 .tab-pill {
   padding: 5px 12px;
-  background: rgba(255,255,255,.05);
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 100px;
   color: var(--text-mute);
@@ -518,7 +618,7 @@ input, textarea, select { font-family: inherit; outline: none; }
 }
 .qa-card {
   padding: 16px;
-  background: rgba(255,255,255,.03);
+  background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--r);
   transition: all .2s;
@@ -566,10 +666,10 @@ input, textarea, select { font-family: inherit; outline: none; }
   width: 100%;
   height: 38px;
   padding: 0 12px 0 38px;
-  background: rgba(255,255,255,.04);
+  background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
-  color: #fff;
+  color: var(--text);
   font-size: .85rem;
 }
 .data-table-search input:focus { border-color: var(--gold); }
@@ -581,7 +681,7 @@ input, textarea, select { font-family: inherit; outline: none; }
 .filter-chip {
   height: 38px;
   padding: 0 14px;
-  background: rgba(255,255,255,.04);
+  background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
   color: var(--text-soft);
@@ -603,7 +703,7 @@ input, textarea, select { font-family: inherit; outline: none; }
   letter-spacing: 1px;
   padding: 14px 20px;
   text-align: left;
-  background: rgba(255,255,255,.02);
+  background: var(--surface-1);
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
@@ -614,7 +714,7 @@ input, textarea, select { font-family: inherit; outline: none; }
   vertical-align: middle;
 }
 .data-table tr:last-child td { border-bottom: none; }
-.data-table tr:hover td { background: rgba(255,255,255,.02); }
+.data-table tr:hover td { background: var(--surface-1); }
 
 .member-cell {
   display: flex; align-items: center; gap: 12px;
@@ -629,7 +729,7 @@ input, textarea, select { font-family: inherit; outline: none; }
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
-.member-name { font-weight: 700; color: #fff; }
+.member-name { font-weight: 700; color: var(--text); }
 .member-email { font-size: .74rem; color: var(--text-mute); margin-top: 1px; }
 
 .status {
@@ -643,7 +743,7 @@ input, textarea, select { font-family: inherit; outline: none; }
 .status--active { background: rgba(34,197,94,.12); color: #4ade80; border: 1px solid rgba(34,197,94,.3); }
 .status--pending { background: rgba(245,158,11,.12); color: #fbbf24; border: 1px solid rgba(245,158,11,.3); }
 .status--expired { background: rgba(239,68,68,.12); color: #f87171; border: 1px solid rgba(239,68,68,.3); }
-.status--inactive { background: rgba(255,255,255,.05); color: var(--text-mute); border: 1px solid var(--border); }
+.status--inactive { background: var(--surface-2); color: var(--text-mute); border: 1px solid var(--border); }
 .status--free { background: rgba(59,130,246,.12); color: #60a5fa; border: 1px solid rgba(59,130,246,.3); }
 
 .action-btn {
@@ -655,7 +755,7 @@ input, textarea, select { font-family: inherit; outline: none; }
   transition: all .15s;
 }
 .action-btn:last-child { margin-right: 0; }
-.action-btn--ghost { background: rgba(255,255,255,.05); border: 1px solid var(--border); color: var(--text-soft); }
+.action-btn--ghost { background: var(--surface-2); border: 1px solid var(--border); color: var(--text-soft); }
 .action-btn--ghost:hover { background: rgba(212,160,23,.12); color: var(--gold-light); }
 .action-btn--success { background: rgba(34,197,94,.15); border: 1px solid rgba(34,197,94,.3); color: #4ade80; }
 .action-btn--success:hover { background: rgba(34,197,94,.25); }
@@ -671,7 +771,7 @@ input, textarea, select { font-family: inherit; outline: none; }
   border-radius: 100px;
   display: inline-flex; align-items: center; gap: 4px;
 }
-.plan-pill--free { background: rgba(255,255,255,.05); color: var(--text-mute); border: 1px solid var(--border); }
+.plan-pill--free { background: var(--surface-2); color: var(--text-mute); border: 1px solid var(--border); }
 .plan-pill--mensual { background: rgba(59,130,246,.12); color: #60a5fa; border: 1px solid rgba(59,130,246,.3); }
 .plan-pill--anual { background: rgba(212,160,23,.15); color: var(--gold-light); border: 1px solid rgba(212,160,23,.3); }
 .plan-pill--regalo { background: rgba(168,85,247,.12); color: #c084fc; border: 1px solid rgba(168,85,247,.3); }
@@ -700,7 +800,7 @@ input, textarea, select { font-family: inherit; outline: none; }
 .content-card:hover {
   border-color: var(--border-hover);
   transform: translateY(-3px);
-  box-shadow: 0 16px 40px rgba(0,0,0,.4);
+  box-shadow: 0 16px 40px var(--shadow-color);
 }
 .content-card-thumb {
   height: 140px;
@@ -795,7 +895,7 @@ input, textarea, select { font-family: inherit; outline: none; }
 }
 .modal-close {
   width: 32px; height: 32px;
-  background: rgba(255,255,255,.05);
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 50%;
   color: var(--text-soft);
@@ -822,9 +922,9 @@ input, textarea, select { font-family: inherit; outline: none; }
   width: 100%;
   padding: 11px 12px;
   background: rgba(0,0,0,.35);
-  border: 1.5px solid rgba(255,255,255,.12);
+  border: 1.5px solid var(--surface-strong);
   border-radius: var(--r-sm);
-  color: #fff;
+  color: var(--text);
   font-size: .9rem;
   font-family: inherit;
   font-weight: 500;
@@ -835,7 +935,7 @@ input, textarea, select { font-family: inherit; outline: none; }
   background: rgba(0,0,0,.5);
   box-shadow: 0 0 0 3px rgba(212,160,23,.15);
 }
-.modal-body input::placeholder, .modal-body textarea::placeholder { color: rgba(255,255,255,.35); }
+.modal-body input::placeholder, .modal-body textarea::placeholder { color: var(--text-mute); }
 /* Select desplegado usa apariencia nativa (texto oscuro sobre blanco) — esto es correcto y legible */
 .modal-body select option {
   background: #fff;
@@ -872,7 +972,7 @@ input, textarea, select { font-family: inherit; outline: none; }
   padding: 14px 18px;
   display: flex; align-items: center; gap: 10px;
   font-size: .87rem; font-weight: 600;
-  box-shadow: 0 16px 40px rgba(0,0,0,.5);
+  box-shadow: 0 16px 40px var(--shadow-color);
   animation: toastIn .35s cubic-bezier(.2,.8,.3,1.4);
 }
 @keyframes toastIn {
@@ -938,7 +1038,7 @@ input, textarea, select { font-family: inherit; outline: none; }
   border: 1px solid var(--border-hover);
   border-radius: var(--r-md);
   overflow: hidden;
-  box-shadow: 0 30px 80px rgba(0,0,0,.6);
+  box-shadow: 0 30px 80px var(--shadow-color);
 }
 .cmdk-input-wrap {
   position: relative;
@@ -949,7 +1049,7 @@ input, textarea, select { font-family: inherit; outline: none; }
   padding: 18px 24px 18px 52px;
   background: transparent;
   border: none;
-  color: #fff;
+  color: var(--text);
   font-size: 1rem;
 }
 .cmdk-input::placeholder { color: var(--text-mute); }
@@ -1115,6 +1215,9 @@ input, textarea, select { font-family: inherit; outline: none; }
       <button class="topbar-btn" onclick="abrirCmdK()">
         🔍 <span>Buscar</span>
       </button>
+      <button class="topbar-btn topbar-btn-icon" onclick="toggleTema()" title="Cambiar tema día/noche" id="btnToggleTema">
+        <span id="temaIcon">🌙</span>
+      </button>
       <a href="https://teccapitalweb.github.io/VisionPecuaria/" target="_blank" rel="noopener noreferrer" class="topbar-btn topbar-btn--primary" style="text-decoration:none;">
         🚀 <span>Ver portal</span>
       </a>
@@ -1272,6 +1375,28 @@ window.toggleSidebar = function(force) {
   sb.classList.toggle('open', open);
   ov.classList.toggle('active', open);
 };
+
+// ═══════════════════════════════════════════════════════════
+// TEMA (modo día / noche)
+// ═══════════════════════════════════════════════════════════
+function aplicarTema(tema) {
+  document.documentElement.setAttribute('data-theme', tema);
+  const icon = document.getElementById('temaIcon');
+  if (icon) icon.textContent = tema === 'light' ? '☀️' : '🌙';
+  try { localStorage.setItem('vp_tema', tema); } catch(e) {}
+}
+
+window.toggleTema = function() {
+  const actual = document.documentElement.getAttribute('data-theme') || 'dark';
+  aplicarTema(actual === 'dark' ? 'light' : 'dark');
+};
+
+// Aplicar tema guardado al cargar (o dark por defecto)
+(function initTema() {
+  let tema = 'dark';
+  try { tema = localStorage.getItem('vp_tema') || 'dark'; } catch(e) {}
+  aplicarTema(tema);
+})();
 
 // ═══════════════════════════════════════════════════════════
 // NAVEGACIÓN
@@ -2100,7 +2225,7 @@ function renderCursos() {
           <div class="content-card-thumb" style="background-image:url('${escapeHTML(c.foto||'')}');background-size:cover;background-position:center;">
             <div class="content-card-thumb-overlay">
               <span class="content-card-tag" style="background:rgba(212,160,23,.95);color:var(--bg-deep);font-weight:800;">#${orden}</span>
-              ${orden === 1 ? '<span class="content-card-tag" style="background:rgba(34,197,94,.85);color:#fff;">🆓 LIBRE</span>' : `<span class="content-card-tag" style="background:rgba(0,0,0,.7);color:#fff;">+${dias}d</span>`}
+              ${orden === 1 ? '<span class="content-card-tag" style="background:rgba(34,197,94,.85);color: var(--text);">🆓 LIBRE</span>' : `<span class="content-card-tag" style="background:rgba(0,0,0,.7);color: var(--text);">+${dias}d</span>`}
             </div>
           </div>
           <div class="content-card-body">
@@ -2237,7 +2362,7 @@ window.gestionarClases = function(cursoId) {
       </div>
       <div id="clasesList">
         ${clases.length === 0 ? '<p style="color:var(--text-mute);text-align:center;padding:20px;">Aún no hay clases. Agrega la primera ↓</p>' : clases.map((cl, i) => `
-          <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;margin-bottom:8px;display:flex;gap:10px;align-items:center;">
+          <div style="background: var(--surface-1);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;margin-bottom:8px;display:flex;gap:10px;align-items:center;">
             <div style="width:30px;height:30px;background:var(--gold-soft);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--gold-light);font-size:.85rem;flex-shrink:0;">${i+1}</div>
             <div style="flex:1;min-width:0;">
               <div style="font-weight:700;font-size:.9rem;">${escapeHTML(cl.titulo || 'Sin título')}</div>
@@ -2359,7 +2484,7 @@ function renderPdfs() {
       ${STATE.pdfs.map(p => `
         <div class="content-card" style="padding:18px;">
           <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
-            <div style="width:48px;height:60px;background:linear-gradient(135deg,#dc2626,#991b1b);border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:11px;flex-shrink:0;">PDF</div>
+            <div style="width:48px;height:60px;background:linear-gradient(135deg,#dc2626,#991b1b);border-radius:6px;display:flex;align-items:center;justify-content:center;color: var(--text);font-weight:800;font-size:11px;flex-shrink:0;">PDF</div>
             <div style="flex:1;min-width:0;">
               <div style="font-weight:700;font-size:.92rem;line-height:1.3;">${escapeHTML(p.titulo||'Sin título')}</div>
               <div style="font-size:.72rem;color:var(--text-mute);margin-top:4px;">${p.paginas ? p.paginas + ' páginas' : ''}</div>
@@ -2664,7 +2789,7 @@ function renderCursosVenta() {
                   </td>
                   <td>
                     <div style="font-weight:700;">${cupoTom} / ${cupoMax}</div>
-                    <div style="height:4px;background:rgba(255,255,255,.08);border-radius:2px;margin-top:4px;overflow:hidden;">
+                    <div style="height:4px;background:var(--surface-3);border-radius:2px;margin-top:4px;overflow:hidden;">
                       <div style="height:100%;width:${cupoMax > 0 ? Math.min(100, (cupoTom/cupoMax)*100) : 0}%;background:linear-gradient(90deg,var(--gold),var(--gold-light));"></div>
                     </div>
                   </td>
@@ -2867,15 +2992,15 @@ window.abrirModalVentasCurso = function(slug) {
     </div>
     <div class="modal-body">
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
-        <div style="background:rgba(255,255,255,.04);padding:14px;border-radius:10px;">
+        <div style="background: var(--surface-1);padding:14px;border-radius:10px;">
           <div style="font-size:.7rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">Ventas</div>
           <div style="font-size:1.5rem;font-weight:800;color:var(--gold-light);">${compras.length}</div>
         </div>
-        <div style="background:rgba(255,255,255,.04);padding:14px;border-radius:10px;">
+        <div style="background: var(--surface-1);padding:14px;border-radius:10px;">
           <div style="font-size:.7rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">Ingresos</div>
           <div style="font-size:1.5rem;font-weight:800;color:var(--gold-light);">$${(totalIngresos/100).toLocaleString('es-MX')}</div>
         </div>
-        <div style="background:rgba(255,255,255,.04);padding:14px;border-radius:10px;">
+        <div style="background: var(--surface-1);padding:14px;border-radius:10px;">
           <div style="font-size:.7rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">Promedio</div>
           <div style="font-size:1.5rem;font-weight:800;color:var(--gold-light);">$${compras.length > 0 ? Math.round((totalIngresos/100)/compras.length).toLocaleString('es-MX') : 0}</div>
         </div>
@@ -2962,7 +3087,7 @@ window.abrirModalClases = function(slug) {
             <p>Sube la primera videoclase abajo.</p>
           </div>
         ` : clases.map((cl, i) => `
-          <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:14px;">
+          <div style="background: var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:14px;">
             <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--gold),var(--gold-deep));color:#111;font-weight:800;display:grid;place-items:center;flex-shrink:0;">${cl.orden || i+1}</div>
             <div style="flex:1;min-width:0;">
               <div style="font-weight:700;color:var(--text);margin-bottom:2px;">${escapeHTML(cl.titulo || 'Clase ' + (i+1))}</div>
@@ -2977,7 +3102,7 @@ window.abrirModalClases = function(slug) {
         `).join('')}
       </div>
 
-      <div style="border-top:1px solid rgba(255,255,255,.08);margin-top:20px;padding-top:20px;">
+      <div style="border-top: 1px solid var(--border);margin-top:20px;padding-top:20px;">
         <h4 style="margin-bottom:14px;color:var(--gold-light);">+ Agregar nueva clase</h4>
         <div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.28);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:.82rem;line-height:1.5;">
           📌 <b>Cómo compartir tu video de Drive:</b><br>
@@ -3112,7 +3237,7 @@ window.editarClase = function(slug, index) {
       </div>
       <div class="field">
         <label>Archivo actual</label>
-        <div style="padding:10px;background:rgba(255,255,255,.04);border-radius:8px;font-family:monospace;font-size:.78rem;color:var(--text-mute);">${escapeHTML(cl.storagePath || 'Sin archivo')}</div>
+        <div style="padding:10px;background: var(--surface-1);border-radius:8px;font-family:monospace;font-size:.78rem;color:var(--text-mute);">${escapeHTML(cl.storagePath || 'Sin archivo')}</div>
       </div>
     </div>
     <div class="modal-foot">
@@ -3214,8 +3339,8 @@ window.abrirModalRecursos = function(slug) {
           <h3>Sin recursos aún</h3>
         </div>
       ` : recursos.map((r, i) => `
-        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:14px;">
-          <div style="width:36px;height:36px;border-radius:10px;background:${r.tipo === 'xlsx' || r.tipo === 'excel' ? 'linear-gradient(135deg,#16a34a,#14532d)' : 'linear-gradient(135deg,#dc2626,#991b1b)'};color:#fff;font-weight:800;display:grid;place-items:center;flex-shrink:0;">${(r.tipo || 'PDF').toUpperCase().slice(0,3)}</div>
+        <div style="background: var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:14px;">
+          <div style="width:36px;height:36px;border-radius:10px;background:${r.tipo === 'xlsx' || r.tipo === 'excel' ? 'linear-gradient(135deg,#16a34a,#14532d)' : 'linear-gradient(135deg,#dc2626,#991b1b)'};color: var(--text);font-weight:800;display:grid;place-items:center;flex-shrink:0;">${(r.tipo || 'PDF').toUpperCase().slice(0,3)}</div>
           <div style="flex:1;min-width:0;">
             <div style="font-weight:700;color:var(--text);margin-bottom:2px;">${escapeHTML(r.titulo || 'Recurso ' + (i+1))}</div>
             <div style="font-size:.72rem;color:var(--text-mute);">${escapeHTML(r.descripcion || '')}</div>
@@ -3225,7 +3350,7 @@ window.abrirModalRecursos = function(slug) {
         </div>
       `).join('')}
 
-      <div style="border-top:1px solid rgba(255,255,255,.08);margin-top:20px;padding-top:20px;">
+      <div style="border-top: 1px solid var(--border);margin-top:20px;padding-top:20px;">
         <h4 style="margin-bottom:14px;color:var(--gold-light);">+ Agregar recurso</h4>
         <div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.28);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:.82rem;line-height:1.5;">
           📌 <b>Comparte tu archivo en Drive:</b> clic derecho → Compartir → <b>"Cualquier persona con el enlace"</b> como <b>Lector</b>
@@ -3405,14 +3530,14 @@ function renderInstructores() {
                     }
                   </td>
                   <td>
-                    <div style="font-weight:700;color:#fff;">${escapeHTML(i.nombre || 'Sin nombre')}</div>
+                    <div style="font-weight:700;color: var(--text);">${escapeHTML(i.nombre || 'Sin nombre')}</div>
                     <div style="font-size:.78rem;color:var(--text-mute);"><code>${escapeHTML(i.id)}</code></div>
                   </td>
                   <td style="max-width:320px;">
                     <div style="color:var(--text-soft);font-size:.88rem;">${i.titulo ? escapeHTML(stripHtml(i.titulo)).substring(0,80) + (stripHtml(i.titulo).length > 80 ? '…' : '') : '<span style="color:var(--text-mute);">Sin título</span>'}</div>
                   </td>
                   <td>
-                    <span style="display:inline-block;padding:4px 10px;border-radius:999px;background:${cursosAsignados > 0 ? 'rgba(212,160,23,.15)' : 'rgba(255,255,255,.05)'};color:${cursosAsignados > 0 ? 'var(--gold-light)' : 'var(--text-mute)'};font-weight:700;font-size:.82rem;">
+                    <span style="display:inline-block;padding:4px 10px;border-radius:999px;background:${cursosAsignados > 0 ? 'rgba(212,160,23,.15)' : 'var(--surface-2)'};color:${cursosAsignados > 0 ? 'var(--gold-light)' : 'var(--text-mute)'};font-weight:700;font-size:.82rem;">
                       ${cursosAsignados} ${cursosAsignados === 1 ? 'curso' : 'cursos'}
                     </span>
                   </td>
@@ -3481,7 +3606,7 @@ window.abrirModalInstructor = function(instructorId) {
         <label>Foto (URL o ruta) *</label>
         <input type="text" id="inFoto" value="${escapeHTML(i.foto || '')}" placeholder="/assets/instructores/castillo-garcia.jpg" oninput="document.getElementById('inFotoPreview').src=this.value">
         <small style="color:var(--text-mute);">Ruta relativa (<code>/assets/...</code>) o URL absoluta (<code>https://...</code>)</small>
-        ${i.foto ? `<div style="margin-top:10px;"><img id="inFotoPreview" src="${escapeHTML(i.foto)}" alt="Preview" style="max-width:120px;max-height:120px;border-radius:12px;object-fit:cover;border:1px solid rgba(255,255,255,.1);"></div>` : `<div style="margin-top:10px;"><img id="inFotoPreview" src="" alt="" style="max-width:120px;max-height:120px;border-radius:12px;object-fit:cover;border:1px solid rgba(255,255,255,.1);display:${i.foto ? 'block' : 'none'};" onload="this.style.display='block'" onerror="this.style.display='none'"></div>`}
+        ${i.foto ? `<div style="margin-top:10px;"><img id="inFotoPreview" src="${escapeHTML(i.foto)}" alt="Preview" style="max-width:120px;max-height:120px;border-radius:12px;object-fit:cover;border:1px solid var(--border);"></div>` : `<div style="margin-top:10px;"><img id="inFotoPreview" src="" alt="" style="max-width:120px;max-height:120px;border-radius:12px;object-fit:cover;border:1px solid var(--border);display:${i.foto ? 'block' : 'none'};" onload="this.style.display='block'" onerror="this.style.display='none'"></div>`}
       </div>
       <div class="field">
         <label>Biografía · Párrafo 1 *</label>
@@ -3738,7 +3863,7 @@ function renderInscripciones() {
                 return `
                   <tr>
                     <td>
-                      <div style="font-weight:700;color:#fff;">${escapeHTML(nombre)}</div>
+                      <div style="font-weight:700;color: var(--text);">${escapeHTML(nombre)}</div>
                       <div style="font-size:.82rem;color:var(--text-soft);">${escapeHTML(email)}</div>
                     </td>
                     <td style="font-family:monospace;color:var(--text-soft);">${escapeHTML(wa)}</td>
@@ -3916,7 +4041,7 @@ function renderModalInscritos() {
     <div class="modal-body">
       <!-- Header: nombre del curso y stats -->
       <div style="padding:16px 20px;background:rgba(212,160,23,.08);border-radius:12px;margin-bottom:16px;border:1px solid rgba(212,160,23,.15);">
-        <div style="font-weight:800;color:#fff;margin-bottom:8px;font-size:1.05rem;">${escapeHTML(nombreCurso)}</div>
+        <div style="font-weight:800;color: var(--text);margin-bottom:8px;font-size:1.05rem;">${escapeHTML(nombreCurso)}</div>
         <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:.86rem;color:var(--text-soft);">
           <div><b style="color:var(--gold-light);">${todosInscritos.length}</b> ${todosInscritos.length === 1 ? 'alumno' : 'alumnos'}</div>
           <div><b style="color:#fbbf24;">${totalPendientes}</b> pendiente${totalPendientes === 1 ? '' : 's'}</div>
@@ -3933,7 +4058,7 @@ function renderModalInscritos() {
         </div>
       ` : `
         <!-- Filtro por fechas -->
-        <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px 16px;margin-bottom:14px;">
+        <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:14px;">
           <div style="font-size:.72rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;font-weight:700;">
             📅 Filtrar por fecha de inscripción
           </div>
@@ -4000,7 +4125,7 @@ function renderModalInscritos() {
               const fechaEnvioStr = fechaEnvio ? fechaEnvio.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
 
               return `
-                <div style="background:rgba(255,255,255,.03);border:1px solid ${enviado ? 'rgba(16,185,129,.25)' : 'rgba(251,191,36,.2)'};border-radius:14px;padding:16px 18px;position:relative;">
+                <div style="background:var(--surface-1);border:1px solid ${enviado ? 'rgba(16,185,129,.25)' : 'rgba(251,191,36,.2)'};border-radius:14px;padding:16px 18px;position:relative;">
                   <!-- Badge de estado -->
                   <div style="position:absolute;top:12px;right:12px;">
                     ${enviado
@@ -4011,7 +4136,7 @@ function renderModalInscritos() {
 
                   <!-- Nombre y meta -->
                   <div style="margin-bottom:12px;padding-right:120px;">
-                    <div style="font-weight:800;color:#fff;font-size:1.05rem;letter-spacing:-.01em;">
+                    <div style="font-weight:800;color: var(--text);font-size:1.05rem;letter-spacing:-.01em;">
                       ${escapeHTML(c.nombre || 'Sin nombre')}
                     </div>
                     <div style="color:var(--text-mute);font-size:.76rem;margin-top:2px;">
@@ -4244,7 +4369,7 @@ function renderStats() {
           const pct = (n / STATE.miembros.length * 100).toFixed(1);
           return `<div style="margin-bottom:10px;">
             <div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:4px;"><span>${escapeHTML(p)}</span><span style="color:var(--gold-light);font-weight:700;">${n} (${pct}%)</span></div>
-            <div style="height:8px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;"><div style="height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-light));width:${pct}%;border-radius:4px;"></div></div>
+            <div style="height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden;"><div style="height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-light));width:${pct}%;border-radius:4px;"></div></div>
           </div>`;
         }).join('')}
       </div>
