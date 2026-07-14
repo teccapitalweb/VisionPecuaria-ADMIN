@@ -2602,27 +2602,21 @@ function renderCursosVenta() {
     </div>
 
     <!-- Métricas resumen -->
-    <div class="stats-grid" style="margin-bottom:20px;">
-      <div class="stat-card">
-        <div class="stat-icon">🎓</div>
-        <div>
-          <div class="stat-num">${cursos.length}</div>
-          <div class="stat-label">Cursos totales · ${cursosActivos} activos</div>
-        </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:22px;">
+      <div class="block" style="text-align:center;">
+        <div style="font-size:2rem;line-height:1;">🎓</div>
+        <div style="font-size:1.8rem;font-weight:800;color:var(--gold-light);margin-top:8px;">${cursos.length}</div>
+        <div style="color:var(--text-mute);font-size:.85rem;">Cursos totales · <b style="color:var(--text-soft);">${cursosActivos} activos</b></div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon">🛍️</div>
-        <div>
-          <div class="stat-num">${totalCompras}</div>
-          <div class="stat-label">Ventas confirmadas</div>
-        </div>
+      <div class="block" style="text-align:center;">
+        <div style="font-size:2rem;line-height:1;">🛍️</div>
+        <div style="font-size:1.8rem;font-weight:800;color:var(--gold-light);margin-top:8px;">${totalCompras}</div>
+        <div style="color:var(--text-mute);font-size:.85rem;">Ventas confirmadas</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon">💰</div>
-        <div>
-          <div class="stat-num">$${(totalVendido/100).toLocaleString('es-MX')}</div>
-          <div class="stat-label">Ingresos totales MXN</div>
-        </div>
+      <div class="block" style="text-align:center;">
+        <div style="font-size:2rem;line-height:1;">💰</div>
+        <div style="font-size:1.8rem;font-weight:800;color:var(--gold-light);margin-top:8px;">$${(totalVendido/100).toLocaleString('es-MX')}</div>
+        <div style="color:var(--text-mute);font-size:.85rem;">Ingresos totales MXN</div>
       </div>
     </div>
 
@@ -3854,13 +3848,62 @@ window.exportarInscripcionesCSV = function() {
 // ═══════════════════════════════════════════════════════════
 // 👥 MODAL DE INSCRITOS POR CURSO (desde botón en fila del curso)
 // ═══════════════════════════════════════════════════════════
+window.__inscritosState = null;
+
 window.abrirModalInscritosCurso = function(slug) {
+  window.__inscritosState = {
+    slug,
+    filtroEstado: 'todos',      // 'todos' | 'pendientes' | 'enviados'
+    fechaDesde: null,
+    fechaHasta: null,
+    preset: 'todos'             // 'todos' | '7dias' | '30dias' | 'custom'
+  };
+  renderModalInscritos();
+};
+
+function obtenerInscritosFiltrados() {
+  const st = window.__inscritosState;
+  if (!st) return [];
+  let filtrados = STATE.comprasCurso.filter(c => c.slug === st.slug);
+
+  // Filtro estado
+  if (st.filtroEstado === 'pendientes') filtrados = filtrados.filter(c => !c.certificadoEnviado);
+  else if (st.filtroEstado === 'enviados') filtrados = filtrados.filter(c => c.certificadoEnviado);
+
+  // Filtro fecha
+  if (st.fechaDesde || st.fechaHasta) {
+    filtrados = filtrados.filter(c => {
+      const fecha = c.fechaCompra
+        ? (c.fechaCompra.toDate ? c.fechaCompra.toDate() : new Date(c.fechaCompra))
+        : null;
+      if (!fecha) return false;
+      if (st.fechaDesde) {
+        const desde = new Date(st.fechaDesde + 'T00:00:00');
+        if (fecha < desde) return false;
+      }
+      if (st.fechaHasta) {
+        const hasta = new Date(st.fechaHasta + 'T23:59:59');
+        if (fecha > hasta) return false;
+      }
+      return true;
+    });
+  }
+
+  return filtrados;
+}
+
+function renderModalInscritos() {
+  const st = window.__inscritosState;
+  if (!st) return;
+  const slug = st.slug;
   const curso = STATE.cursosVenta.find(c => c.id === slug);
   const nombreCurso = curso?.nombre || slug;
-  const inscritos = STATE.comprasCurso.filter(c => c.slug === slug);
-  const totalIngresos = inscritos.reduce((s, c) => s + (c.montoCentavos || c.monto || 0), 0);
+  const todosInscritos = STATE.comprasCurso.filter(c => c.slug === slug);
+  const totalIngresos = todosInscritos.reduce((s, c) => s + (c.montoCentavos || c.monto || 0), 0);
+  const totalPendientes = todosInscritos.filter(c => !c.certificadoEnviado).length;
+  const totalEnviados = todosInscritos.filter(c => c.certificadoEnviado).length;
 
-  window.__inscritosCursoActual = { slug, inscritos };
+  const filtrados = obtenerInscritosFiltrados();
 
   abrirModal(`
     <div class="modal-head">
@@ -3871,136 +3914,269 @@ window.abrirModalInscritosCurso = function(slug) {
       <button class="modal-close" onclick="cerrarModal()">×</button>
     </div>
     <div class="modal-body">
-      <div style="padding:16px 20px;background:rgba(212,160,23,.08);border-radius:12px;margin-bottom:20px;border:1px solid rgba(212,160,23,.15);">
-        <div style="font-weight:800;color:#fff;margin-bottom:6px;">${escapeHTML(nombreCurso)}</div>
-        <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:.88rem;color:var(--text-soft);">
-          <div><b style="color:var(--gold-light);">${inscritos.length}</b> ${inscritos.length === 1 ? 'alumno inscrito' : 'alumnos inscritos'}</div>
-          <div><b style="color:var(--gold-light);">$${(totalIngresos/100).toLocaleString('es-MX')}</b> MXN en ingresos</div>
+      <!-- Header: nombre del curso y stats -->
+      <div style="padding:16px 20px;background:rgba(212,160,23,.08);border-radius:12px;margin-bottom:16px;border:1px solid rgba(212,160,23,.15);">
+        <div style="font-weight:800;color:#fff;margin-bottom:8px;font-size:1.05rem;">${escapeHTML(nombreCurso)}</div>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:.86rem;color:var(--text-soft);">
+          <div><b style="color:var(--gold-light);">${todosInscritos.length}</b> ${todosInscritos.length === 1 ? 'alumno' : 'alumnos'}</div>
+          <div><b style="color:#fbbf24;">${totalPendientes}</b> pendiente${totalPendientes === 1 ? '' : 's'}</div>
+          <div><b style="color:#10b981;">${totalEnviados}</b> certificado${totalEnviados === 1 ? '' : 's'} enviado${totalEnviados === 1 ? '' : 's'}</div>
+          <div><b style="color:var(--gold-light);">$${(totalIngresos/100).toLocaleString('es-MX')}</b> MXN</div>
         </div>
       </div>
 
-      ${inscritos.length === 0 ? `
+      ${todosInscritos.length === 0 ? `
         <div style="text-align:center;padding:40px 20px;color:var(--text-mute);">
           <div style="font-size:3rem;margin-bottom:12px;">📭</div>
           <div style="font-weight:700;color:var(--text-soft);margin-bottom:6px;">Sin inscripciones todavía</div>
           <div style="font-size:.9rem;">Cuando alguien compre este curso, aparecerá aquí.</div>
         </div>
       ` : `
-        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-          <button class="action-btn action-btn--gold" onclick="copiarTodosLosInscritos('${escapeHTML(slug)}')">
-            📋 Copiar todos (para Excel)
-          </button>
-          <button class="action-btn action-btn--ghost" onclick="exportarInscritosCursoCSV('${escapeHTML(slug)}')">
-            📥 Descargar CSV
-          </button>
+        <!-- Filtro por fechas -->
+        <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px 16px;margin-bottom:14px;">
+          <div style="font-size:.72rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;font-weight:700;">
+            📅 Filtrar por fecha de inscripción
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
+            <button class="action-btn action-btn--sm ${st.preset === 'todos' ? 'action-btn--gold' : 'action-btn--ghost'}" onclick="aplicarPresetFecha('todos')">Todas las fechas</button>
+            <button class="action-btn action-btn--sm ${st.preset === '7dias' ? 'action-btn--gold' : 'action-btn--ghost'}" onclick="aplicarPresetFecha('7dias')">Últimos 7 días</button>
+            <button class="action-btn action-btn--sm ${st.preset === '30dias' ? 'action-btn--gold' : 'action-btn--ghost'}" onclick="aplicarPresetFecha('30dias')">Últimos 30 días</button>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+            <div style="flex:1;min-width:130px;">
+              <label style="display:block;font-size:.68rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Desde</label>
+              <input type="date" id="fechaDesdeInscritos" value="${st.fechaDesde || ''}" style="width:100%;">
+            </div>
+            <div style="flex:1;min-width:130px;">
+              <label style="display:block;font-size:.68rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Hasta</label>
+              <input type="date" id="fechaHastaInscritos" value="${st.fechaHasta || ''}" style="width:100%;">
+            </div>
+            <button class="action-btn action-btn--sm action-btn--gold" onclick="aplicarFechaCustom()">Aplicar rango</button>
+          </div>
         </div>
 
-        <div style="display:flex;flex-direction:column;gap:12px;max-height:60vh;overflow-y:auto;padding-right:6px;">
-          ${inscritos.map((c, idx) => {
-            const fecha = c.fechaCompra
-              ? (c.fechaCompra.toDate ? c.fechaCompra.toDate() : new Date(c.fechaCompra))
-              : null;
-            const fechaStr = fecha ? fecha.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
-            const monto = c.montoCentavos ? '$' + (c.montoCentavos/100).toLocaleString('es-MX') : '';
-            return `
-              <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:16px 18px;">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:12px;flex-wrap:wrap;">
-                  <div style="flex:1;min-width:200px;">
+        <!-- Filtro por estado -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">
+          <span style="font-size:.72rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-right:4px;">Estado:</span>
+          <button class="action-btn action-btn--sm ${st.filtroEstado === 'todos' ? 'action-btn--gold' : 'action-btn--ghost'}" onclick="filtrarEstadoInscritos('todos')">Todos (${todosInscritos.length})</button>
+          <button class="action-btn action-btn--sm ${st.filtroEstado === 'pendientes' ? 'action-btn--gold' : 'action-btn--ghost'}" onclick="filtrarEstadoInscritos('pendientes')">🟡 Pendientes (${totalPendientes})</button>
+          <button class="action-btn action-btn--sm ${st.filtroEstado === 'enviados' ? 'action-btn--gold' : 'action-btn--ghost'}" onclick="filtrarEstadoInscritos('enviados')">🟢 Enviados (${totalEnviados})</button>
+        </div>
+
+        <!-- Contador y acciones globales -->
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;padding:10px 14px;background:rgba(0,0,0,.2);border-radius:10px;">
+          <div style="color:var(--text-soft);font-size:.9rem;">
+            Mostrando <b style="color:var(--gold-light);">${filtrados.length}</b> de ${todosInscritos.length} alumnos
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="action-btn action-btn--sm action-btn--gold" onclick="copiarInscritosFiltrados()" ${filtrados.length === 0 ? 'disabled' : ''}>
+              📋 Copiar filtrados
+            </button>
+            <button class="action-btn action-btn--sm action-btn--ghost" onclick="descargarInscritosFiltradosCSV()" ${filtrados.length === 0 ? 'disabled' : ''}>
+              📥 Descargar CSV
+            </button>
+          </div>
+        </div>
+
+        <!-- Lista de alumnos -->
+        ${filtrados.length === 0 ? `
+          <div style="text-align:center;padding:40px 20px;color:var(--text-mute);">
+            <div style="font-size:2.5rem;margin-bottom:8px;">🔍</div>
+            <div style="font-weight:700;color:var(--text-soft);">Sin resultados con estos filtros</div>
+            <div style="font-size:.85rem;margin-top:4px;">Prueba con otros filtros o rangos de fecha.</div>
+          </div>
+        ` : `
+          <div style="display:flex;flex-direction:column;gap:10px;max-height:50vh;overflow-y:auto;padding-right:4px;">
+            ${filtrados.map((c, idx) => {
+              const fecha = c.fechaCompra
+                ? (c.fechaCompra.toDate ? c.fechaCompra.toDate() : new Date(c.fechaCompra))
+                : null;
+              const fechaStr = fecha ? fecha.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+              const monto = c.montoCentavos ? '$' + (c.montoCentavos/100).toLocaleString('es-MX') : '';
+              const enviado = !!c.certificadoEnviado;
+              const fechaEnvio = c.fechaEnvioCertificado
+                ? (c.fechaEnvioCertificado.toDate ? c.fechaEnvioCertificado.toDate() : new Date(c.fechaEnvioCertificado))
+                : null;
+              const fechaEnvioStr = fechaEnvio ? fechaEnvio.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+
+              return `
+                <div style="background:rgba(255,255,255,.03);border:1px solid ${enviado ? 'rgba(16,185,129,.25)' : 'rgba(251,191,36,.2)'};border-radius:14px;padding:16px 18px;position:relative;">
+                  <!-- Badge de estado -->
+                  <div style="position:absolute;top:12px;right:12px;">
+                    ${enviado
+                      ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:rgba(16,185,129,.15);color:#10b981;font-size:.72rem;font-weight:700;letter-spacing:.02em;">🟢 CERTIFICADO ENVIADO${fechaEnvioStr ? ' · ' + fechaEnvioStr : ''}</span>`
+                      : `<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:rgba(251,191,36,.15);color:#fbbf24;font-size:.72rem;font-weight:700;letter-spacing:.02em;">🟡 PENDIENTE</span>`
+                    }
+                  </div>
+
+                  <!-- Nombre y meta -->
+                  <div style="margin-bottom:12px;padding-right:120px;">
                     <div style="font-weight:800;color:#fff;font-size:1.05rem;letter-spacing:-.01em;">
                       ${escapeHTML(c.nombre || 'Sin nombre')}
                     </div>
-                    <div style="color:var(--text-mute);font-size:.78rem;margin-top:2px;">
-                      Alumno #${idx + 1} · ${fechaStr} · ${monto}
+                    <div style="color:var(--text-mute);font-size:.76rem;margin-top:2px;">
+                      Inscrito #${idx + 1} · ${fechaStr}${monto ? ' · ' + monto : ''}
                     </div>
+                  </div>
+
+                  <!-- Datos del alumno (visibles) -->
+                  <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:.85rem;margin-bottom:14px;background:rgba(0,0,0,.2);padding:10px 12px;border-radius:8px;">
+                    <div style="color:var(--text-mute);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;padding-top:2px;">Nombre</div>
+                    <div style="color:var(--text-soft);">${escapeHTML(c.nombre || '—')}</div>
+
+                    <div style="color:var(--text-mute);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;padding-top:2px;">Email</div>
+                    <div style="color:var(--text-soft);font-family:monospace;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(c.email || '—')}</div>
+
+                    <div style="color:var(--text-mute);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;padding-top:2px;">WhatsApp</div>
+                    <div style="color:var(--text-soft);font-family:monospace;">${escapeHTML(c.whatsapp || c.telefono || '—')}</div>
+                  </div>
+
+                  <!-- Botones de acción -->
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="action-btn action-btn--sm action-btn--gold" onclick="copiarUnAlumno('${escapeHTML(c.id)}')">
+                      📋 Copiar datos
+                    </button>
+                    ${enviado
+                      ? `<button class="action-btn action-btn--sm action-btn--ghost" onclick="marcarCertificadoEnviado('${escapeHTML(c.id)}', false)">↶ Marcar como pendiente</button>`
+                      : `<button class="action-btn action-btn--sm" style="background:rgba(16,185,129,.15);color:#10b981;border:1px solid rgba(16,185,129,.3);" onclick="marcarCertificadoEnviado('${escapeHTML(c.id)}', true)">✓ Marcar certificado enviado</button>`
+                    }
                   </div>
                 </div>
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;">
-                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:rgba(0,0,0,.25);border-radius:10px;">
-                    <div style="min-width:0;flex:1;">
-                      <div style="font-size:.68rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">Nombre</div>
-                      <div style="color:var(--text-soft);font-size:.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHTML(c.nombre || '—')}</div>
-                    </div>
-                    <button class="action-btn action-btn--sm" onclick="copiarDato(this, \`${escapeHTML((c.nombre || '').replace(/`/g, '\\`'))}\`)" title="Copiar nombre">📋</button>
-                  </div>
-                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:rgba(0,0,0,.25);border-radius:10px;">
-                    <div style="min-width:0;flex:1;">
-                      <div style="font-size:.68rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">Email</div>
-                      <div style="color:var(--text-soft);font-size:.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;">${escapeHTML(c.email || '—')}</div>
-                    </div>
-                    <button class="action-btn action-btn--sm" onclick="copiarDato(this, \`${escapeHTML((c.email || '').replace(/`/g, '\\`'))}\`)" title="Copiar email">📋</button>
-                  </div>
-                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:rgba(0,0,0,.25);border-radius:10px;">
-                    <div style="min-width:0;flex:1;">
-                      <div style="font-size:.68rem;color:var(--text-mute);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px;">WhatsApp</div>
-                      <div style="color:var(--text-soft);font-size:.88rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:monospace;">${escapeHTML(c.whatsapp || c.telefono || '—')}</div>
-                    </div>
-                    <button class="action-btn action-btn--sm" onclick="copiarDato(this, \`${escapeHTML(((c.whatsapp || c.telefono) || '').replace(/`/g, '\\`'))}\`)" title="Copiar WhatsApp">📋</button>
-                  </div>
-                </div>
-              </div>
-            `;
-          }).join('')}
-        </div>
+              `;
+            }).join('')}
+          </div>
+        `}
       `}
     </div>
     <div class="modal-foot">
       <button class="action-btn action-btn--ghost" onclick="cerrarModal()">Cerrar</button>
     </div>
   `);
+}
+
+// Cambiar filtro de estado
+window.filtrarEstadoInscritos = function(estado) {
+  if (!window.__inscritosState) return;
+  window.__inscritosState.filtroEstado = estado;
+  renderModalInscritos();
 };
 
-// Copiar UN dato individual (nombre, email o whatsapp)
-window.copiarDato = function(btn, texto) {
+// Aplicar preset de fecha (todas / 7 días / 30 días)
+window.aplicarPresetFecha = function(preset) {
+  if (!window.__inscritosState) return;
+  const st = window.__inscritosState;
+  st.preset = preset;
+  const hoy = new Date();
+  if (preset === 'todos') {
+    st.fechaDesde = null;
+    st.fechaHasta = null;
+  } else if (preset === '7dias') {
+    const desde = new Date();
+    desde.setDate(hoy.getDate() - 7);
+    st.fechaDesde = desde.toISOString().substring(0, 10);
+    st.fechaHasta = hoy.toISOString().substring(0, 10);
+  } else if (preset === '30dias') {
+    const desde = new Date();
+    desde.setDate(hoy.getDate() - 30);
+    st.fechaDesde = desde.toISOString().substring(0, 10);
+    st.fechaHasta = hoy.toISOString().substring(0, 10);
+  }
+  renderModalInscritos();
+};
+
+// Aplicar rango custom desde inputs
+window.aplicarFechaCustom = function() {
+  if (!window.__inscritosState) return;
+  const st = window.__inscritosState;
+  const desde = document.getElementById('fechaDesdeInscritos').value;
+  const hasta = document.getElementById('fechaHastaInscritos').value;
+  if (!desde && !hasta) {
+    toast('Selecciona al menos una fecha', 'error');
+    return;
+  }
+  st.preset = 'custom';
+  st.fechaDesde = desde || null;
+  st.fechaHasta = hasta || null;
+  renderModalInscritos();
+};
+
+// Marcar/desmarcar certificado enviado
+window.marcarCertificadoEnviado = async function(compraId, enviado) {
+  try {
+    const update = {
+      certificadoEnviado: enviado
+    };
+    if (enviado) {
+      update.fechaEnvioCertificado = firebase.firestore.Timestamp.now();
+    } else {
+      update.fechaEnvioCertificado = firebase.firestore.FieldValue.delete();
+    }
+    await db.collection('comprasCurso').doc(compraId).update(update);
+    toast(enviado ? '✓ Marcado como enviado' : '↶ Marcado como pendiente', 'success');
+    // Re-render con los datos actualizados (llegan por snapshot listener)
+    setTimeout(renderModalInscritos, 200);
+  } catch (err) {
+    console.error(err);
+    toast('Error al actualizar: ' + err.message, 'error');
+  }
+};
+
+// Copiar datos de UN alumno específico (tab-separated para Excel)
+window.copiarUnAlumno = function(compraId) {
+  const c = STATE.comprasCurso.find(x => x.id === compraId);
+  if (!c) return;
+  const nombre = c.nombre || '';
+  const email = c.email || '';
+  const wa = c.whatsapp || c.telefono || '';
+  const texto = `${nombre}\t${email}\t${wa}`;
   navigator.clipboard.writeText(texto).then(() => {
-    const original = btn.textContent;
-    btn.textContent = '✓';
-    btn.style.background = 'rgba(16,185,129,.2)';
-    setTimeout(() => {
-      btn.textContent = original;
-      btn.style.background = '';
-    }, 1200);
+    toast(`Datos copiados: ${nombre}`, 'success');
   }).catch(err => {
     toast('Error al copiar: ' + err.message, 'error');
   });
 };
 
-// Copiar todos los inscritos de un curso (tab-separated para pegar en Excel)
-window.copiarTodosLosInscritos = function(slug) {
-  const inscritos = STATE.comprasCurso.filter(c => c.slug === slug);
-  if (inscritos.length === 0) { toast('Sin datos para copiar', 'error'); return; }
-  // Encabezado + filas separadas por tab (formato Excel/Sheets)
+// Copiar todos los alumnos actualmente filtrados
+window.copiarInscritosFiltrados = function() {
+  const filtrados = obtenerInscritosFiltrados();
+  if (filtrados.length === 0) { toast('Sin alumnos que copiar con estos filtros', 'error'); return; }
   const filas = ['Nombre\tEmail\tWhatsApp'];
-  inscritos.forEach(c => {
+  filtrados.forEach(c => {
     filas.push(`${c.nombre || ''}\t${c.email || ''}\t${c.whatsapp || c.telefono || ''}`);
   });
-  const texto = filas.join('\n');
-  navigator.clipboard.writeText(texto).then(() => {
-    toast(`${inscritos.length} inscritos copiados. Pégalos en Excel con Ctrl+V.`, 'success');
+  navigator.clipboard.writeText(filas.join('\n')).then(() => {
+    toast(`${filtrados.length} alumnos copiados. Pégalos en Excel con Ctrl+V.`, 'success');
   }).catch(err => {
     toast('Error al copiar: ' + err.message, 'error');
   });
 };
 
-// Descargar CSV solo de UN curso
-window.exportarInscritosCursoCSV = function(slug) {
-  const curso = STATE.cursosVenta.find(c => c.id === slug);
-  const nombreCurso = curso?.nombre || slug;
-  const inscritos = STATE.comprasCurso.filter(c => c.slug === slug);
-  if (inscritos.length === 0) { toast('Sin datos para exportar', 'error'); return; }
+// Descargar CSV con los alumnos filtrados
+window.descargarInscritosFiltradosCSV = function() {
+  const st = window.__inscritosState;
+  if (!st) return;
+  const filtrados = obtenerInscritosFiltrados();
+  if (filtrados.length === 0) { toast('Sin alumnos que exportar con estos filtros', 'error'); return; }
 
-  const rows = [['Nombre completo', 'Email', 'WhatsApp', 'Fecha compra', 'Monto MXN', 'Session ID']];
-  inscritos.forEach(c => {
+  const rows = [['Nombre completo', 'Email', 'WhatsApp', 'Fecha inscripción', 'Monto MXN', 'Certificado enviado', 'Fecha envío certificado', 'Session ID']];
+  filtrados.forEach(c => {
     const fecha = c.fechaCompra
       ? (c.fechaCompra.toDate ? c.fechaCompra.toDate() : new Date(c.fechaCompra))
       : null;
     const fechaStr = fecha ? fecha.toISOString().substring(0, 10) : '';
     const monto = c.montoCentavos ? (c.montoCentavos/100).toFixed(2) : (c.monto || '');
+    const fechaEnvio = c.fechaEnvioCertificado
+      ? (c.fechaEnvioCertificado.toDate ? c.fechaEnvioCertificado.toDate() : new Date(c.fechaEnvioCertificado))
+      : null;
+    const fechaEnvioStr = fechaEnvio ? fechaEnvio.toISOString().substring(0, 10) : '';
     rows.push([
       c.nombre || '',
       c.email || '',
       c.whatsapp || c.telefono || '',
       fechaStr,
       monto,
+      c.certificadoEnviado ? 'Sí' : 'No',
+      fechaEnvioStr,
       c.id || c.sessionId || ''
     ]);
   });
@@ -4014,14 +4190,16 @@ window.exportarInscritosCursoCSV = function(slug) {
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const fechaHoy = new Date().toISOString().substring(0, 10);
+  const filtroLabel = st.filtroEstado !== 'todos' ? '-' + st.filtroEstado : '';
+  const rangoLabel = st.fechaDesde && st.fechaHasta ? `-${st.fechaDesde}-a-${st.fechaHasta}` : '';
   const a = document.createElement('a');
   a.href = url;
-  a.download = `inscritos-${slug}-${fechaHoy}.csv`;
+  a.download = `inscritos-${st.slug}${filtroLabel}${rangoLabel}-${fechaHoy}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  toast(`CSV descargado (${inscritos.length} alumnos)`, 'success');
+  toast(`CSV descargado (${filtrados.length} alumnos)`, 'success');
 };
 
 // ═══════════════════════════════════════════════════════════
