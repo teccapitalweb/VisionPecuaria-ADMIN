@@ -2965,6 +2965,33 @@ window.abrirModalEditarCurso = function(cursoId) {
         <input type="text" id="cvInstructorNombre" value="${escapeHTML(c.instructorNombre || '')}" placeholder="M.V.Z. José Antonio Castillo García">
       </div>
       <div class="field">
+        <label>✨ Palabra clave a destacar <small style="color:var(--text-mute);font-weight:400;">(opcional, se muestra con highlight en el hero)</small></label>
+        <input type="text" id="cvPalabraClave" value="${escapeHTML(c.palabraClave || '')}" placeholder="Ej: Embutidos Artesanales">
+        <small style="color:var(--text-mute);">Esta palabra aparecerá con fuente serif italic y un fondo de color en el título del curso.</small>
+      </div>
+      <div class="field">
+        <label>🎨 Color de marca del curso <small style="color:var(--text-mute);font-weight:400;">(afecta landing y panel del alumno)</small></label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+          ${[
+            ['#EA580C', 'Naranja embutidos'],
+            ['#D97706', 'Ámbar avícola'],
+            ['#DC2626', 'Rojo cárnico'],
+            ['#059669', 'Verde forraje'],
+            ['#0EA5E9', 'Azul acuícola'],
+            ['#8B5CF6', 'Púrpura veterinaria'],
+            ['#EAB308', 'Amarillo apícola'],
+            ['#EC4899', 'Rosa porcino']
+          ].map(([col, nombre]) => `
+            <button type="button" onclick="document.getElementById('cvColorMarca').value='${col}';document.getElementById('cvColorPreview').style.background='${col}';" title="${nombre}" style="width:34px;height:34px;border-radius:10px;background:${col};border:2px solid ${(c.colorMarca || '').toLowerCase() === col.toLowerCase() ? '#fff' : 'var(--border)'};cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.2);"></button>
+          `).join('')}
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <div id="cvColorPreview" style="width:44px;height:44px;border-radius:12px;background:${c.colorMarca || '#EA580C'};border:2px solid var(--border);flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.2);"></div>
+          <input type="text" id="cvColorMarca" value="${escapeHTML(c.colorMarca || '#EA580C')}" placeholder="#EA580C" pattern="^#[0-9a-fA-F]{6}$" oninput="document.getElementById('cvColorPreview').style.background=this.value;" style="flex:1;font-family:monospace;">
+        </div>
+        <small style="color:var(--text-mute);">Elige un preset o escribe tu HEX. Este color se usa en el hero, botones, anillos de progreso y bordes de la landing y curso-acceso.</small>
+      </div>
+      <div class="field">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
           <input type="checkbox" id="cvActivo" ${c.activo !== false ? 'checked' : ''}>
           <span>Curso activo (visible en la landing pública)</span>
@@ -3000,6 +3027,8 @@ window.guardarCursoVenta = async function(cursoId) {
     fechaInicio: fechaInicio ? firebase.firestore.Timestamp.fromDate(fechaInicio) : null,
     instructorId: document.getElementById('cvInstructorId')?.value || '',
     instructorNombre: document.getElementById('cvInstructorNombre').value.trim(),
+    colorMarca: (document.getElementById('cvColorMarca')?.value || '').trim() || null,
+    palabraClave: (document.getElementById('cvPalabraClave')?.value || '').trim() || null,
     activo: document.getElementById('cvActivo').checked
   };
 
@@ -4062,7 +4091,26 @@ function renderModalInscritos() {
   const curso = STATE.cursosVenta.find(c => c.id === slug);
   const nombreCurso = curso?.nombre || slug;
   const todosInscritos = STATE.comprasCurso.filter(c => c.slug === slug);
-  const totalIngresos = todosInscritos.reduce((s, c) => s + (c.montoCentavos || c.monto || 0), 0);
+
+  // Función robusta para obtener el monto de una compra (en centavos)
+  // Prioridad: campos explícitos del doc > precio del curso > 0
+  function obtenerMontoCentavos(compra) {
+    // Campos posibles que puede usar el backend
+    if (typeof compra.montoPagadoCentavos === 'number') return compra.montoPagadoCentavos;
+    if (typeof compra.montoCentavos === 'number') return compra.montoCentavos;
+    if (typeof compra.amountTotal === 'number') return compra.amountTotal;
+    if (typeof compra.amount_total === 'number') return compra.amount_total;
+    if (typeof compra.totalCentavos === 'number') return compra.totalCentavos;
+    if (typeof compra.precioCentavos === 'number') return compra.precioCentavos;
+    // Fallback: si "monto" viene en pesos (no centavos), multiplicar por 100
+    if (typeof compra.monto === 'number') return compra.monto > 1000 ? compra.monto : compra.monto * 100;
+    // Último fallback: usar el precio de lanzamiento del curso
+    if (curso?.precioLanzamientoCentavos) return curso.precioLanzamientoCentavos;
+    if (curso?.precioNormalCentavos) return curso.precioNormalCentavos;
+    return 0;
+  }
+
+  const totalIngresos = todosInscritos.reduce((s, c) => s + obtenerMontoCentavos(c), 0);
   const totalPendientes = todosInscritos.filter(c => !c.certificadoEnviado).length;
   const totalEnviados = todosInscritos.filter(c => c.certificadoEnviado).length;
 
@@ -4155,7 +4203,8 @@ function renderModalInscritos() {
                 ? (c.fechaCompra.toDate ? c.fechaCompra.toDate() : new Date(c.fechaCompra))
                 : null;
               const fechaStr = fecha ? fecha.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
-              const monto = c.montoCentavos ? '$' + (c.montoCentavos/100).toLocaleString('es-MX') : '';
+              const montoC = obtenerMontoCentavos(c);
+              const monto = montoC > 0 ? '$' + (montoC/100).toLocaleString('es-MX') : '';
               const enviado = !!c.certificadoEnviado;
               const fechaEnvio = c.fechaEnvioCertificado
                 ? (c.fechaEnvioCertificado.toDate ? c.fechaEnvioCertificado.toDate() : new Date(c.fechaEnvioCertificado))
