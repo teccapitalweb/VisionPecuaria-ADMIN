@@ -1049,6 +1049,11 @@ input, textarea, select { font-family: inherit; outline: none; }
       <span class="sb-nav-icon">🛒</span>
       <span class="sb-nav-label">Cursos en Venta</span>
     </button>
+    <button class="sb-nav-item" data-page="instructores">
+      <span class="sb-nav-icon">🎤</span>
+      <span class="sb-nav-label">Instructores</span>
+      <span class="sb-nav-badge" id="badgeInstructores" style="display:none">0</span>
+    </button>
   </nav>
 
   <div class="sb-section-label">Reportes</div>
@@ -1162,6 +1167,7 @@ const STATE = {
   certificados: [],
   cursosVenta: [],       // Cursos a la venta (embutidos, futuros)
   comprasCurso: [],      // Ventas confirmadas de cursos
+  instructores: [],      // Ponentes reutilizables entre cursos
   config: {},
   currentPage: 'dashboard'
 };
@@ -1274,6 +1280,7 @@ const PAGE_META = {
   webinars: { title: '📡 Sesiones en vivo', sub: 'Programa webinars y eventos en directo' },
   certificados: { title: '🎖️ Certificados', sub: 'Emisión y verificación de constancias' },
   cursosVenta: { title: '🛒 Cursos en Venta', sub: 'Gestiona precios, cupos, videoclases y ventas' },
+  instructores: { title: '🎤 Instructores', sub: 'Ponentes reutilizables entre cursos' },
   estadisticas: { title: '📊 Estadísticas', sub: 'Métricas y análisis de la plataforma' },
   pagos: { title: '💰 Pagos', sub: 'Historial completo de transacciones' },
   config: { title: '⚙️ Configuración', sub: 'Ajustes generales de Visión Pecuaria' }
@@ -1435,8 +1442,20 @@ function suscribirTodo() {
 
   safeSnapshot(db.collection('comprasCurso').orderBy('fechaCompra','desc').limit(200), snap => {
     STATE.comprasCurso = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    if (STATE.currentPage === 'cursosVenta') renderCursosVenta();
-  }, 'comprasCurso');
+    if (STATE.currentPage === 'cursosVenta') renderCursosVenta();  }, 'comprasCurso');
+
+  // ─── INSTRUCTORES ───────────────────────────────────────────────
+  safeSnapshot(db.collection('instructores'), snap => {
+    STATE.instructores = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (STATE.currentPage === 'instructores') renderInstructores();
+    // Actualizar badge del sidebar
+    const badge = document.getElementById('badgeInstructores');
+    if (badge) {
+      const n = STATE.instructores.length;
+      if (n > 0) { badge.style.display = ''; badge.textContent = n; }
+      else badge.style.display = 'none';
+    }
+  }, 'instructores');
 }
 
 function actualizarBadges() {
@@ -2771,7 +2790,19 @@ window.abrirModalEditarCurso = function(cursoId) {
         <small style="color:var(--text-mute);">Se muestra en la landing como "Disponible desde ..." y activa el countdown</small>
       </div>
       <div class="field">
-        <label>Nombre del instructor</label>
+        <label>Instructor</label>
+        <select id="cvInstructorId" style="width:100%;">
+          <option value="">— Sin instructor asignado —</option>
+          ${(STATE.instructores || []).map(inst =>
+            `<option value="${escapeHTML(inst.id)}" ${c.instructorId === inst.id ? 'selected' : ''}>${escapeHTML(inst.nombre || inst.id)}</option>`
+          ).join('')}
+        </select>
+        <small style="color:var(--text-mute);">
+          Selecciona un instructor del catálogo. ¿No aparece? <a href="#" onclick="cerrarModal();setTimeout(()=>abrirModalInstructor(null),150);return false;" style="color:var(--gold-light);">+ Crear nuevo instructor</a>
+        </small>
+      </div>
+      <div class="field">
+        <label>Nombre del instructor <small style="color:var(--text-mute);font-weight:400;">(fallback si no eliges del catálogo)</small></label>
         <input type="text" id="cvInstructorNombre" value="${escapeHTML(c.instructorNombre || '')}" placeholder="M.V.Z. José Antonio Castillo García">
       </div>
       <div class="field">
@@ -2808,6 +2839,7 @@ window.guardarCursoVenta = async function(cursoId) {
     duracionHoras: Number(document.getElementById('cvDuracion').value) || 0,
     modalidad: document.getElementById('cvModalidad').value,
     fechaInicio: fechaInicio ? firebase.firestore.Timestamp.fromDate(fechaInicio) : null,
+    instructorId: document.getElementById('cvInstructorId')?.value || '',
     instructorNombre: document.getElementById('cvInstructorNombre').value.trim(),
     activo: document.getElementById('cvActivo').checked
   };
@@ -3312,6 +3344,251 @@ window.eliminarTodosLosRecursos = async function(slug) {
     setTimeout(() => abrirModalRecursos(slug), 200);
   } catch (err) {
     toast('Error: ' + err.message, 'error');
+  }
+};
+
+// ═══════════════════════════════════════════════════════════
+// 🎤 INSTRUCTORES (ponentes reutilizables entre cursos)
+// ═══════════════════════════════════════════════════════════
+PAGES.instructores = function() { renderInstructores(); };
+
+function renderInstructores() {
+  const instructores = STATE.instructores || [];
+  const cursos = STATE.cursosVenta || [];
+
+  // Contar cursos por instructor
+  const cursosPorInstructor = {};
+  cursos.forEach(c => {
+    if (c.instructorId) {
+      cursosPorInstructor[c.instructorId] = (cursosPorInstructor[c.instructorId] || 0) + 1;
+    }
+  });
+
+  document.getElementById('content').innerHTML = `
+    <div class="page-head">
+      <div>
+        <h1>🎤 Instructores <span style="font-size:.7em;color:var(--text-mute);font-weight:600;">${instructores.length}</span></h1>
+        <p>Ponentes reutilizables entre cursos. Un cambio aquí se refleja en todos los cursos vinculados.</p>
+      </div>
+      <button class="action-btn action-btn--gold" onclick="abrirModalInstructor(null)">+ Crear instructor</button>
+    </div>
+
+    ${instructores.length === 0 ? `
+      <div class="block">
+        <div class="empty-state">
+          <div class="empty-state-icon">🎤</div>
+          <h3>Sin instructores registrados</h3>
+          <p>Crea tu primer instructor para poder asignarlo a cursos. Los datos (foto, bio, credenciales) se mostrarán dinámicamente en las landings.</p>
+        </div>
+      </div>
+    ` : `
+      <div class="block">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Foto</th>
+              <th>Nombre</th>
+              <th>Especialidad</th>
+              <th>Cursos</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${instructores.map(i => {
+              const cursosAsignados = cursosPorInstructor[i.id] || 0;
+              return `
+                <tr>
+                  <td>
+                    ${i.foto
+                      ? `<img src="${escapeHTML(i.foto)}" alt="" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid rgba(212,160,23,.3);" onerror="this.style.display='none';this.nextElementSibling.style.display='grid';"><div style="display:none;width:48px;height:48px;border-radius:50%;background:rgba(212,160,23,.15);color:var(--gold);place-items:center;font-weight:800;">${escapeHTML((i.nombre||'?')[0])}</div>`
+                      : `<div style="width:48px;height:48px;border-radius:50%;background:rgba(212,160,23,.15);color:var(--gold);display:grid;place-items:center;font-weight:800;">${escapeHTML((i.nombre||'?')[0])}</div>`
+                    }
+                  </td>
+                  <td>
+                    <div style="font-weight:700;color:#fff;">${escapeHTML(i.nombre || 'Sin nombre')}</div>
+                    <div style="font-size:.78rem;color:var(--text-mute);"><code>${escapeHTML(i.id)}</code></div>
+                  </td>
+                  <td style="max-width:320px;">
+                    <div style="color:var(--text-soft);font-size:.88rem;">${i.titulo ? escapeHTML(stripHtml(i.titulo)).substring(0,80) + (stripHtml(i.titulo).length > 80 ? '…' : '') : '<span style="color:var(--text-mute);">Sin título</span>'}</div>
+                  </td>
+                  <td>
+                    <span style="display:inline-block;padding:4px 10px;border-radius:999px;background:${cursosAsignados > 0 ? 'rgba(212,160,23,.15)' : 'rgba(255,255,255,.05)'};color:${cursosAsignados > 0 ? 'var(--gold-light)' : 'var(--text-mute)'};font-weight:700;font-size:.82rem;">
+                      ${cursosAsignados} ${cursosAsignados === 1 ? 'curso' : 'cursos'}
+                    </span>
+                  </td>
+                  <td>
+                    <button class="action-btn action-btn--sm" onclick="abrirModalInstructor('${escapeHTML(i.id)}')" title="Editar">✏️</button>
+                    <button class="action-btn action-btn--sm action-btn--danger" onclick="eliminarInstructor('${escapeHTML(i.id)}')" title="Eliminar" ${cursosAsignados > 0 ? 'disabled' : ''}>🗑️</button>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `}
+  `;
+}
+
+function stripHtml(str) {
+  const div = document.createElement('div');
+  div.innerHTML = str || '';
+  return div.textContent || div.innerText || '';
+}
+
+window.abrirModalInstructor = function(instructorId) {
+  const esNuevo = !instructorId;
+  const i = esNuevo ? {
+    nombre: '',
+    titulo: '',
+    foto: '',
+    bio1: '',
+    bio2: '',
+    tags: []
+  } : (STATE.instructores.find(x => x.id === instructorId) || {});
+
+  const tags = Array.isArray(i.tags) ? i.tags : [];
+
+  abrirModal(`
+    <div class="modal-head">
+      <h3>${esNuevo ? '+ Crear instructor' : '✏️ Editar instructor'}</h3>
+      <button class="modal-close" onclick="cerrarModal()">×</button>
+    </div>
+    <div class="modal-body">
+      ${!esNuevo ? `
+        <div class="field">
+          <label>ID (no editable)</label>
+          <input type="text" id="inId" value="${escapeHTML(instructorId)}" disabled>
+          <small style="color:var(--text-mute);">Este es el ID en Firestore. Referenciado por los cursos.</small>
+        </div>
+      ` : `
+        <div class="field">
+          <label>ID del instructor *</label>
+          <input type="text" id="inId" placeholder="castillo-garcia" pattern="[a-z0-9-]+">
+          <small style="color:var(--text-mute);">Sin espacios, solo minúsculas y guiones. Ej: <code>castillo-garcia</code></small>
+        </div>
+      `}
+      <div class="field">
+        <label>Nombre completo *</label>
+        <input type="text" id="inNombre" value="${escapeHTML(i.nombre || '')}" placeholder="M.V.Z. José Antonio Castillo García">
+      </div>
+      <div class="field">
+        <label>Título / Especialidad *</label>
+        <input type="text" id="inTitulo" value="${escapeHTML(i.titulo || '')}" placeholder="Médico Veterinario Zootecnista · <b>Especialista en Embutidos</b>">
+        <small style="color:var(--text-mute);">Acepta HTML básico: <code>&lt;b&gt;</code> para negritas</small>
+      </div>
+      <div class="field">
+        <label>Foto (URL o ruta) *</label>
+        <input type="text" id="inFoto" value="${escapeHTML(i.foto || '')}" placeholder="/assets/instructores/castillo-garcia.jpg" oninput="document.getElementById('inFotoPreview').src=this.value">
+        <small style="color:var(--text-mute);">Ruta relativa (<code>/assets/...</code>) o URL absoluta (<code>https://...</code>)</small>
+        ${i.foto ? `<div style="margin-top:10px;"><img id="inFotoPreview" src="${escapeHTML(i.foto)}" alt="Preview" style="max-width:120px;max-height:120px;border-radius:12px;object-fit:cover;border:1px solid rgba(255,255,255,.1);"></div>` : `<div style="margin-top:10px;"><img id="inFotoPreview" src="" alt="" style="max-width:120px;max-height:120px;border-radius:12px;object-fit:cover;border:1px solid rgba(255,255,255,.1);display:${i.foto ? 'block' : 'none'};" onload="this.style.display='block'" onerror="this.style.display='none'"></div>`}
+      </div>
+      <div class="field">
+        <label>Biografía · Párrafo 1 *</label>
+        <textarea id="inBio1" rows="4" placeholder="Egresado de la Facultad de Medicina Veterinaria...">${escapeHTML(i.bio1 || '')}</textarea>
+        <small style="color:var(--text-mute);">Acepta HTML: <code>&lt;b&gt;</code> para negritas</small>
+      </div>
+      <div class="field">
+        <label>Biografía · Párrafo 2 (opcional)</label>
+        <textarea id="inBio2" rows="4" placeholder="Ha capacitado a más de 800 productores...">${escapeHTML(i.bio2 || '')}</textarea>
+      </div>
+      <div class="field">
+        <label>Credenciales / Tags</label>
+        <div id="inTagsContainer" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+          ${tags.map((tag, idx) => `
+            <span class="in-tag" data-idx="${idx}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(212,160,23,.15);color:var(--gold-light);border-radius:999px;font-size:.85rem;font-weight:600;">
+              ${escapeHTML(tag)}
+              <button type="button" onclick="quitarTagInstructor(${idx})" style="background:none;border:none;color:var(--gold-light);cursor:pointer;font-size:1rem;line-height:1;padding:0;">×</button>
+            </span>
+          `).join('')}
+        </div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="inTagNuevo" placeholder="Ej: 15+ años de experiencia" onkeydown="if(event.key==='Enter'){event.preventDefault();agregarTagInstructor();}" style="flex:1;">
+          <button type="button" class="action-btn action-btn--sm" onclick="agregarTagInstructor()">+ Agregar</button>
+        </div>
+        <small style="color:var(--text-mute);">Presiona Enter o el botón para agregar cada tag</small>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="action-btn action-btn--ghost" onclick="cerrarModal()">Cancelar</button>
+      <button class="action-btn action-btn--gold" onclick="guardarInstructor(${esNuevo ? 'null' : `'${instructorId}'`})">${esNuevo ? 'Crear' : 'Guardar cambios'}</button>
+    </div>
+  `);
+
+  // Guardar tags en variable temporal del modal
+  window.__tagsInstructorTemp = [...tags];
+};
+
+window.agregarTagInstructor = function() {
+  const input = document.getElementById('inTagNuevo');
+  const val = input.value.trim();
+  if (!val) return;
+  if (!Array.isArray(window.__tagsInstructorTemp)) window.__tagsInstructorTemp = [];
+  window.__tagsInstructorTemp.push(val);
+  input.value = '';
+  refrescarTagsInstructor();
+  input.focus();
+};
+
+window.quitarTagInstructor = function(idx) {
+  if (!Array.isArray(window.__tagsInstructorTemp)) return;
+  window.__tagsInstructorTemp.splice(idx, 1);
+  refrescarTagsInstructor();
+};
+
+function refrescarTagsInstructor() {
+  const cont = document.getElementById('inTagsContainer');
+  if (!cont) return;
+  const tags = window.__tagsInstructorTemp || [];
+  cont.innerHTML = tags.map((tag, idx) => `
+    <span class="in-tag" data-idx="${idx}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(212,160,23,.15);color:var(--gold-light);border-radius:999px;font-size:.85rem;font-weight:600;">
+      ${escapeHTML(tag)}
+      <button type="button" onclick="quitarTagInstructor(${idx})" style="background:none;border:none;color:var(--gold-light);cursor:pointer;font-size:1rem;line-height:1;padding:0;">×</button>
+    </span>
+  `).join('');
+}
+
+window.guardarInstructor = async function(instructorId) {
+  const id = instructorId || (document.getElementById('inId').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'-'));
+  if (!id) { toast('El ID es requerido', 'error'); return; }
+  const nombre = document.getElementById('inNombre').value.trim();
+  if (!nombre) { toast('El nombre es requerido', 'error'); return; }
+  const titulo = document.getElementById('inTitulo').value.trim();
+  const foto = document.getElementById('inFoto').value.trim();
+  const bio1 = document.getElementById('inBio1').value.trim();
+  const bio2 = document.getElementById('inBio2').value.trim();
+  const tags = Array.isArray(window.__tagsInstructorTemp) ? window.__tagsInstructorTemp : [];
+
+  const datos = { nombre, titulo, foto, bio1, bio2, tags };
+
+  try {
+    await db.collection('instructores').doc(id).set(datos, { merge: true });
+    cerrarModal();
+    window.__tagsInstructorTemp = null;
+    toast(instructorId ? `Instructor ${id} actualizado` : `Instructor ${id} creado`, 'success');
+  } catch (err) {
+    console.error(err);
+    toast('Error al guardar: ' + err.message, 'error');
+  }
+};
+
+window.eliminarInstructor = async function(instructorId) {
+  // Validar que no esté vinculado a ningún curso
+  const cursosVinculados = STATE.cursosVenta.filter(c => c.instructorId === instructorId);
+  if (cursosVinculados.length > 0) {
+    const nombres = cursosVinculados.map(c => c.nombre || c.id).join(', ');
+    toast(`No se puede eliminar: está vinculado a ${cursosVinculados.length} curso(s): ${nombres}. Cambia el instructor en esos cursos primero.`, 'error');
+    return;
+  }
+  const inst = STATE.instructores.find(i => i.id === instructorId);
+  const nombre = inst?.nombre || instructorId;
+  if (!confirm(`¿Eliminar instructor "${nombre}"?\n\nEsta acción no se puede deshacer.`)) return;
+  try {
+    await db.collection('instructores').doc(instructorId).delete();
+    toast(`Instructor ${nombre} eliminado`, 'success');
+  } catch (err) {
+    console.error(err);
+    toast('Error al eliminar: ' + err.message, 'error');
   }
 };
 
