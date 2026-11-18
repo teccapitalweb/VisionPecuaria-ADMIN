@@ -1205,6 +1205,10 @@ input, textarea, select { font-family: inherit; outline: none; }
       <span class="sb-nav-label">Inscripciones</span>
       <span class="sb-nav-badge" id="badgeInscripciones" style="display:none">0</span>
     </button>
+    <button class="sb-nav-item" data-page="accesosCursos">
+      <span class="sb-nav-icon">🔑</span>
+      <span class="sb-nav-label">Accesos de alumnos</span>
+    </button>
     <button class="sb-nav-item" data-page="instructores">
       <span class="sb-nav-icon">🎤</span>
       <span class="sb-nav-label">Instructores</span>
@@ -1437,6 +1441,7 @@ const PAGE_META = {
   certificados: { title: '🎖️ Certificados', sub: 'Emisión y verificación de constancias' },
   cursosVenta: { title: '🛒 Cursos en Venta', sub: 'Gestiona precios, cupos, videoclases y ventas' },
   inscripciones: { title: '📝 Inscripciones', sub: 'Alumnos inscritos en los cursos · Datos listos para IPCIL' },
+  accesosCursos: { title: '🔑 Accesos de alumnos', sub: 'Recupera y concilia compras individuales con bitácora' },
   instructores: { title: '🎤 Instructores', sub: 'Ponentes reutilizables entre cursos' },
   estadisticas: { title: '📊 Estadísticas', sub: 'Métricas y análisis de la plataforma' },
   pagos: { title: '💰 Pagos', sub: 'Historial completo de transacciones' },
@@ -4500,6 +4505,123 @@ function renderPagos() {
     </div>`}
   `;
 }
+
+// ═══════════════════════════════════════════════════════════
+// 🔑 ACCESOS DE ALUMNOS (compras individuales)
+// Toda corrección pasa por el backend: verifica el pago en Stripe,
+// exige motivo y deja registro en auditoriaCursos.
+// ═══════════════════════════════════════════════════════════
+const VP_API = 'https://visionpecuaria-webhook-production.up.railway.app';
+let ACC_RES = null, ACC_AUD = [];
+async function accApi(path, opts = {}) {
+  const token = await auth.currentUser.getIdToken();
+  const r = await fetch(VP_API + path, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token } });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || ('Error ' + r.status));
+  return d;
+}
+PAGES.accesosCursos = function() { renderAccesosCursos(); cargarAuditoriaCursos(); };
+async function cargarAuditoriaCursos() {
+  try { ACC_AUD = (await accApi('/admin/cursos/auditoria')).registros || []; }
+  catch (e) { ACC_AUD = []; console.warn(e); }
+  if (STATE.currentPage === 'accesosCursos') renderAccesosCursos();
+}
+function renderAccesosCursos() {
+  const cont = document.getElementById('content');
+  const r = ACC_RES;
+  const fila = (k, v) => `<div style="display:flex;gap:8px;font-size:.85rem"><span style="color:var(--text-mute);min-width:120px">${k}</span><span style="word-break:break-all">${v}</span></div>`;
+  cont.innerHTML = `
+    <div class="page-header"><div><h1>🔑 Accesos de alumnos</h1><p>Busca por correo o por ID de pago de Stripe (cs_...). Nada se modifica hasta que confirmes con un motivo.</p></div></div>
+    <div class="block">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <div class="data-table-search" style="flex:1 1 320px">
+          <input type="text" id="accBuscar" placeholder="Correo del alumno o ID de pago (cs_live_...)" onkeydown="if(event.key==='Enter')buscarAccesoAlumno()">
+        </div>
+        <button class="action-btn action-btn--gold" onclick="buscarAccesoAlumno()">🔎 Buscar</button>
+      </div>
+    </div>
+    ${r ? `
+    <div class="block"><div class="block-head"><h3>🧾 Compras encontradas (${r.compras.length})</h3></div>
+      ${r.compras.length ? r.compras.map(c => `
+        <div style="border:1px solid var(--border,rgba(255,255,255,.08));border-radius:12px;padding:12px;margin-bottom:10px;display:grid;gap:4px">
+          ${fila('Pago', escapeHTML(c.id))}
+          ${fila('Curso', escapeHTML(c.slug || '—'))}
+          ${fila('Correo de compra', escapeHTML(c.email || '—'))}
+          ${fila('Estado', escapeHTML(c.estado || '—'))}
+          ${fila('Fecha', escapeHTML(c.fechaCompra || '—'))}
+          ${fila('Monto', c.montoPagadoCentavos ? '$' + (c.montoPagadoCentavos/100).toLocaleString('es-MX') + ' MXN' : '—')}
+          ${fila('UID vinculado', escapeHTML(c.uidVinculado || c.uid || '—'))}
+          <div style="margin-top:8px"><button class="action-btn action-btn--sm action-btn--gold" onclick="abrirConciliar('${escapeHTML(c.id)}','${escapeHTML(c.email||'')}')">🔗 Vincular a una cuenta</button></div>
+        </div>`).join('') : '<p style="color:var(--text-mute)">Sin compras con ese dato. Si el alumno tiene su ID de pago de Stripe, búscalo por ese ID.</p>'}
+    </div>
+    <div class="block"><div class="block-head"><h3>👤 Cuentas y accesos</h3></div>
+      ${r.cuentas.length ? r.cuentas.map(u => `
+        <div style="border:1px solid var(--border,rgba(255,255,255,.08));border-radius:12px;padding:12px;margin-bottom:10px;display:grid;gap:4px">
+          ${fila('Cuenta', escapeHTML(u.email) + (u.sintetico ? ' <em style="color:var(--text-mute)">(registro sin sesión de la landing)</em>' : ''))}
+          ${fila('UID', escapeHTML(u.uid))}
+          ${u.sintetico ? '' : fila('Correo verificado', u.verificado ? '✅ Sí' : '⚠️ No')}
+          ${(u.accesos||[]).map(a => fila('Acceso', `${escapeHTML(a.slug)} · ${a.activo ? '✅ activo' : '⛔ ' + escapeHTML(a.estado||'inactivo')} · ${escapeHTML(a.origen||'compra')}` +
+              (a.activo && !u.sintetico ? ` <button class="action-btn action-btn--sm action-btn--danger" onclick="abrirRevocar('${escapeHTML(u.uid)}','${escapeHTML(a.slug)}')">Revocar</button>` : ''))).join('') || fila('Acceso', '—')}
+        </div>`).join('') : '<p style="color:var(--text-mute)">No hay cuenta del aula con ese correo. El alumno debe entrar primero en visionpecuariamx.com/aula/.</p>'}
+    </div>` : ''}
+    <div class="block"><div class="block-head"><h3>📜 Bitácora de correcciones</h3></div>
+      ${ACC_AUD.length ? `<div class="data-table-wrap"><table class="data-table"><thead><tr><th>Fecha</th><th>Acción</th><th>Curso</th><th>Destino</th><th>Motivo</th><th>Admin</th></tr></thead><tbody>
+        ${ACC_AUD.map(a => `<tr><td>${fmtFecha(a.fecha)}</td><td>${escapeHTML(a.accion)}</td><td>${escapeHTML(a.slug||'')}</td><td>${escapeHTML(a.emailDestino||a.uidDestino||'')}</td><td>${escapeHTML(a.motivo||'')}</td><td>${escapeHTML(a.adminEmail||'')}</td></tr>`).join('')}
+      </tbody></table></div>` : '<p style="color:var(--text-mute)">Sin correcciones registradas.</p>'}
+    </div>`;
+}
+window.buscarAccesoAlumno = async function() {
+  const v = (document.getElementById('accBuscar').value || '').trim();
+  if (!v) return toast('Escribe un correo o un ID de pago', 'error');
+  const q = v.startsWith('cs_') ? 'sessionId=' + encodeURIComponent(v) : 'email=' + encodeURIComponent(v.toLowerCase());
+  try { ACC_RES = await accApi('/admin/cursos/buscar?' + q); renderAccesosCursos(); document.getElementById('accBuscar').value = v; }
+  catch (e) { toast(e.message, 'error'); }
+};
+window.abrirConciliar = function(sessionId, emailCompra) {
+  abrirModal(`
+    <div class="modal-head"><h3>🔗 Vincular compra a una cuenta</h3></div>
+    <div class="modal-body">
+      <p style="font-size:.85rem;color:var(--text-mute);margin-bottom:12px">Pago <b>${escapeHTML(sessionId)}</b>${emailCompra ? ' · comprado con ' + escapeHTML(emailCompra) : ''}. El backend verifica que Stripe lo reporte como pagado antes de dar acceso.</p>
+      <div class="field"><label>Correo de la cuenta del aula del alumno</label><input type="email" id="concEmail" placeholder="correo con el que entra al aula"></div>
+      <div class="field"><label>Motivo y evidencia (obligatorio)</label><input type="text" id="concMotivo" placeholder="Ej: pagó con correo de su hijo; envió comprobante por WhatsApp"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="action-btn action-btn--ghost" onclick="cerrarModal()">Cancelar</button>
+      <button class="action-btn action-btn--gold" onclick="confirmarConciliar('${escapeHTML(sessionId)}')">Vincular</button>
+    </div>`);
+};
+window.confirmarConciliar = async function(sessionId) {
+  const emailDestino = document.getElementById('concEmail').value.trim().toLowerCase();
+  const motivo = document.getElementById('concMotivo').value.trim();
+  if (!emailDestino || motivo.length < 5) return toast('Correo y motivo son obligatorios', 'error');
+  try {
+    const r = await accApi('/admin/cursos/conciliar', { method: 'POST', body: JSON.stringify({ sessionId, emailDestino, motivo }) });
+    toast(r.yaTenia ? 'Esa cuenta ya tenía el acceso' : 'Acceso vinculado ✅', 'success');
+    cerrarModal(); cargarAuditoriaCursos();
+    if (ACC_RES) buscarAccesoAlumno();
+  } catch (e) { toast(e.message, 'error'); }
+};
+window.abrirRevocar = function(uid, slug) {
+  abrirModal(`
+    <div class="modal-head"><h3>⛔ Revocar acceso</h3></div>
+    <div class="modal-body">
+      <p style="font-size:.85rem;color:var(--text-mute);margin-bottom:12px">Curso <b>${escapeHTML(slug)}</b> · cuenta ${escapeHTML(uid)}. El acceso no se volverá a otorgar automáticamente.</p>
+      <div class="field"><label>Motivo (obligatorio)</label><input type="text" id="revMotivo" placeholder="Ej: reembolso aprobado"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="action-btn action-btn--ghost" onclick="cerrarModal()">Cancelar</button>
+      <button class="action-btn action-btn--danger" onclick="confirmarRevocar('${escapeHTML(uid)}','${escapeHTML(slug)}')">Revocar</button>
+    </div>`);
+};
+window.confirmarRevocar = async function(uid, slug) {
+  const motivo = document.getElementById('revMotivo').value.trim();
+  if (motivo.length < 5) return toast('Escribe el motivo', 'error');
+  try {
+    await accApi('/admin/cursos/revocar', { method: 'POST', body: JSON.stringify({ uid, slug, motivo }) });
+    toast('Acceso revocado', 'success'); cerrarModal(); cargarAuditoriaCursos();
+    if (ACC_RES) buscarAccesoAlumno();
+  } catch (e) { toast(e.message, 'error'); }
+};
 
 // ═══════════════════════════════════════════════════════════
 // ⚙️ CONFIG
