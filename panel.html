@@ -1209,6 +1209,11 @@ input, textarea, select { font-family: inherit; outline: none; }
       <span class="sb-nav-icon">🔑</span>
       <span class="sb-nav-label">Accesos de alumnos</span>
     </button>
+    <button class="sb-nav-item" data-page="solicitudesCert">
+      <span class="sb-nav-icon">📜</span>
+      <span class="sb-nav-label">Solicitudes de certificado</span>
+      <span class="sb-nav-badge" id="badgeSolicitudesCert" style="display:none">0</span>
+    </button>
     <button class="sb-nav-item" data-page="instructores">
       <span class="sb-nav-icon">🎤</span>
       <span class="sb-nav-label">Instructores</span>
@@ -1375,6 +1380,7 @@ auth.onAuthStateChanged(function(user) {
     const ini = nombre.split(' ').slice(0,2).map(s => s[0]).join('').toUpperCase();
     document.getElementById('userAvatar').textContent = ini || 'VP';
     iniciarApp();
+    setTimeout(function(){ if (typeof cargarSolicitudesCert === 'function') cargarSolicitudesCert().catch(function(){}); }, 1500);
   });
 });
 
@@ -1442,6 +1448,7 @@ const PAGE_META = {
   cursosVenta: { title: '🛒 Cursos en Venta', sub: 'Gestiona precios, cupos, videoclases y ventas' },
   inscripciones: { title: '📝 Inscripciones', sub: 'Alumnos inscritos en los cursos · Datos listos para IPCIL' },
   accesosCursos: { title: '🔑 Accesos de alumnos', sub: 'Recupera y concilia compras individuales con bitácora' },
+  solicitudesCert: { title: '📜 Solicitudes de certificado', sub: 'Alumnos que pidieron su certificado desde el aula' },
   instructores: { title: '🎤 Instructores', sub: 'Ponentes reutilizables entre cursos' },
   estadisticas: { title: '📊 Estadísticas', sub: 'Métricas y análisis de la plataforma' },
   pagos: { title: '💰 Pagos', sub: 'Historial completo de transacciones' },
@@ -4521,6 +4528,95 @@ async function accApi(path, opts = {}) {
   return d;
 }
 PAGES.accesosCursos = function() { renderAccesosCursos(); cargarAuditoriaCursos(); };
+
+// ═══════════════════════════════════════════════════════════
+// 📜 SOLICITUDES DE CERTIFICADO (desde el aula «Mi curso»)
+// ═══════════════════════════════════════════════════════════
+let SOL_CERT = null, SOL_FILTRO = { estado: 'pendiente', curso: '', q: '' };
+const SOL_ESTADOS = { pendiente: ['Pendiente', '#f59e0b'], en_proceso: ['En proceso', '#3b82f6'], emitido: ['Emitido', '#10b981'], rechazado: ['Rechazado', '#ef4444'] };
+PAGES.solicitudesCert = function() { renderSolicitudesCert(); cargarSolicitudesCert(); };
+async function cargarSolicitudesCert() {
+  try { SOL_CERT = (await accApi('/admin/certificados/solicitudes')).solicitudes || []; }
+  catch (e) { SOL_CERT = []; if (STATE.currentPage === 'solicitudesCert') toast('No se pudieron cargar las solicitudes: ' + e.message, 'error'); }
+  const pend = SOL_CERT.filter(x => x.estado === 'pendiente').length;
+  const b = document.getElementById('badgeSolicitudesCert');
+  if (b) { b.textContent = pend; b.style.display = pend ? '' : 'none'; }
+  if (STATE.currentPage === 'solicitudesCert') renderSolicitudesCert();
+}
+function solFecha(iso) { if (!iso) return '—'; const d = new Date(iso); return isNaN(d) ? '—' : d.toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }); }
+function renderSolicitudesCert() {
+  const cont = document.getElementById('content');
+  const todas = SOL_CERT || [];
+  const cursos = [...new Set(todas.map(x => x.cursoNombre || x.slug))].sort();
+  const q = SOL_FILTRO.q.toLowerCase();
+  const lista = todas.filter(x =>
+    (!SOL_FILTRO.estado || x.estado === SOL_FILTRO.estado) &&
+    (!SOL_FILTRO.curso || (x.cursoNombre || x.slug) === SOL_FILTRO.curso) &&
+    (!q || [x.nombreCompleto, x.email, x.whatsapp, x.ciudad, x.estadoRep].join(' ').toLowerCase().includes(q)));
+  const cuenta = (e) => todas.filter(x => x.estado === e).length;
+  const chip = (e) => { const [t, c] = SOL_ESTADOS[e] || [e, '#999']; return `<span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:.75rem;font-weight:700;background:${c}22;color:${c};white-space:nowrap">${t}</span>`; };
+  const tabs = ['pendiente', 'en_proceso', 'emitido', 'rechazado', ''].map(e =>
+    `<button class="action-btn action-btn--sm ${SOL_FILTRO.estado === e ? 'action-btn--gold' : ''}" onclick="SOL_FILTRO.estado='${e}';renderSolicitudesCert()">${e ? SOL_ESTADOS[e][0] + ' (' + cuenta(e) + ')' : 'Todas (' + todas.length + ')'}</button>`).join('');
+  cont.innerHTML = `
+    <div class="page-header"><div><h1>📜 Solicitudes de certificado</h1><p>Alumnos que pidieron su certificado desde el aula. Revisa los datos, emítelo y márcalo como emitido.</p></div>
+      <div><button class="action-btn" onclick="cargarSolicitudesCert()">🔄 Actualizar</button> <button class="action-btn" onclick="exportarSolicitudesCert()">⬇️ Exportar CSV</button></div></div>
+    <div class="block">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">${tabs}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div class="data-table-search" style="flex:1 1 260px"><input type="text" placeholder="Buscar por nombre, correo, WhatsApp o ciudad" value="${escapeHTML(SOL_FILTRO.q)}" oninput="SOL_FILTRO.q=this.value;renderSolicitudesCert();this.focus();this.setSelectionRange(this.value.length,this.value.length)"></div>
+        <select class="form-input" style="max-width:320px" onchange="SOL_FILTRO.curso=this.value;renderSolicitudesCert()">
+          <option value="">Todos los cursos</option>${cursos.map(c => `<option ${SOL_FILTRO.curso === c ? 'selected' : ''}>${escapeHTML(c)}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="block">
+      ${SOL_CERT === null ? '<p style="color:var(--text-mute)">Cargando…</p>' : !lista.length ? '<p style="color:var(--text-mute)">No hay solicitudes con este filtro.</p>' : `
+      <div class="data-table-wrap"><table class="data-table">
+        <thead><tr><th>Fecha</th><th>Nombre para el certificado</th><th>Curso</th><th>Contacto</th><th>Ubicación</th><th>Avance</th><th>Estado</th><th></th></tr></thead>
+        <tbody>${lista.map(x => `<tr>
+          <td style="white-space:nowrap">${solFecha(x.fechaSolicitud)}</td>
+          <td><b>${escapeHTML(x.nombreCompleto || '—')}</b>${x.ocupacion ? `<div style="font-size:.78rem;color:var(--text-mute)">${escapeHTML(x.ocupacion)}</div>` : ''}${x.comentarios ? `<div style="font-size:.78rem;color:var(--text-mute)">“${escapeHTML(x.comentarios)}”</div>` : ''}</td>
+          <td>${escapeHTML(x.cursoNombre || x.slug)}</td>
+          <td style="font-size:.85rem">${escapeHTML(x.email || '—')}${x.emailVerificado ? ' ✓' : ''}<br><a href="https://wa.me/${escapeHTML((x.whatsapp || '').replace(/\D/g, '').length === 10 ? '52' + x.whatsapp.replace(/\D/g, '') : (x.whatsapp || '').replace(/\D/g, ''))}" target="_blank" rel="noopener">${escapeHTML(x.whatsapp || '—')}</a></td>
+          <td style="font-size:.85rem">${escapeHTML([x.ciudad, x.estadoRep].filter(Boolean).join(', ') || '—')}</td>
+          <td style="white-space:nowrap">${Number(x.progresoPorcentaje) || 0}%<div style="font-size:.75rem;color:var(--text-mute)">${x.clasesCompletadas || 0}/${x.clasesTotales || 0} clases</div></td>
+          <td>${chip(x.estado)}${x.folio ? `<div style="font-size:.75rem;margin-top:4px">Folio ${escapeHTML(x.folio)}</div>` : ''}</td>
+          <td style="white-space:nowrap">
+            ${x.estado !== 'en_proceso' && x.estado !== 'emitido' ? `<button class="action-btn action-btn--sm" onclick="cambiarSolicitudCert('${escapeHTML(x.id)}','en_proceso')">En proceso</button>` : ''}
+            ${x.estado !== 'emitido' ? `<button class="action-btn action-btn--sm action-btn--gold" onclick="emitirSolicitudCert('${escapeHTML(x.id)}')">✅ Emitido</button>` : ''}
+            ${x.estado !== 'rechazado' && x.estado !== 'emitido' ? `<button class="action-btn action-btn--sm" onclick="rechazarSolicitudCert('${escapeHTML(x.id)}')">✕</button>` : ''}
+            ${x.estado === 'emitido' || x.estado === 'rechazado' ? `<button class="action-btn action-btn--sm" onclick="cambiarSolicitudCert('${escapeHTML(x.id)}','pendiente')">Reabrir</button>` : ''}
+          </td></tr>`).join('')}</tbody>
+      </table></div>`}
+    </div>`;
+}
+async function cambiarSolicitudCert(id, estado, extra = {}) {
+  try {
+    await accApi('/admin/certificados/solicitudes/estado', { method: 'POST', body: JSON.stringify({ id, estado, ...extra }) });
+    toast('Solicitud actualizada', 'success');
+    await cargarSolicitudesCert();
+  } catch (e) { toast(e.message, 'error'); }
+}
+function emitirSolicitudCert(id) {
+  const folio = prompt('Folio del certificado emitido (opcional):', '');
+  if (folio === null) return;
+  cambiarSolicitudCert(id, 'emitido', { folio: folio.trim() });
+}
+function rechazarSolicitudCert(id) {
+  const nota = prompt('Motivo (se guarda como nota interna):', '');
+  if (nota === null) return;
+  cambiarSolicitudCert(id, 'rechazado', { nota: nota.trim() });
+}
+function exportarSolicitudesCert() {
+  const cols = ['fechaSolicitud', 'estado', 'cursoNombre', 'nombreCompleto', 'email', 'whatsapp', 'estadoRep', 'ciudad', 'ocupacion', 'progresoPorcentaje', 'folio', 'comentarios'];
+  const cel = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const csv = '﻿' + cols.join(',') + '\n' + (SOL_CERT || []).map(x => cols.map(c => cel(x[c])).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = 'solicitudes-certificado.csv';
+  a.click();
+}
+
 async function cargarAuditoriaCursos() {
   try { ACC_AUD = (await accApi('/admin/cursos/auditoria')).registros || []; }
   catch (e) { ACC_AUD = []; console.warn(e); }
