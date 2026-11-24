@@ -1,0 +1,75 @@
+.gk { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; max-width: 1200px; }
+.gk .page-header { margin-bottom: 0; }
+.gk .page-header h1 { display: block; }
+.gk .page-header p, .gk-help, .gk-note { color: var(--text-soft); }
+.gk-help { font-size: .8rem; font-weight: 400; }
+.gk-note { font-size: .87rem; }
+.gk-status:not(:empty) { padding: 10px 13px; border: 1px solid var(--border); border-left: 3px solid var(--gold); border-radius: var(--r-sm); background: var(--surface-1); color: var(--text-soft); }
+.gk-status[data-error="true"] { border-left-color: var(--error); }
+.gk-control, .gk-btn, .gk-tab { font: inherit; }
+.gk-control { width: 100%; min-height: 44px; padding: 9px 11px; border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text); background: var(--bg-base); }
+.gk-control[type="file"] { padding-block: 7px; }
+.gk-control:is(select, textarea), .gk-control[type="file"] { font-size: .875rem; }
+textarea.gk-control { min-height: 96px; resize: vertical; }
+.gk :is(input, textarea, select, button, a):focus-visible { outline: 2px solid var(--gold-light); outline-offset: 2px; }
+.gk-btn, .gk-tab { display: inline-flex; justify-content: center; align-items: center; min-height: 42px; padding: 8px 14px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface-2); color: var(--text); font-weight: 700; cursor: pointer; }
+.gk-btn:hover, .gk-tab:hover { background: var(--surface-3); }
+.gk-btn[disabled] { cursor: wait; opacity: .55; }
+.gk-btn--primary, .gk-tab[aria-selected="true"] { border-color: var(--border-hover); background: var(--gold-soft); color: var(--gold-light); }
+.gk-btn--danger { color: var(--error); }
+.gk-tabs, .gk-actions, .gk-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.gk-card { min-width: 0; padding: 18px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-card); }
+.gk-card h2 { font-size: 1.04rem; }
+.gk-card h3 { font-size: .98rem; }
+.gk-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }
+.gk-toolbar .gk-label { flex: 1 1 130px; }
+.gk-toolbar .gk-label:first-child { flex: 2 1 220px; }
+.gk-label { display: grid; gap: 4px; min-width: 0; font-size: .83rem; font-weight: 700; }
+.gk-check { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 8px; font-size: .86rem; }
+.gk-check input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--gold); }
+.gk-list { list-style: none; display: grid; gap: 10px; }
+.gk-source { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--border); }
+.gk-source:last-child { padding-bottom: 0; border-bottom: 0; }
+.gk-source:first-child { padding-top: 0; }
+.gk-source p, .gk-source strong, .gk-result, .gk-summary { overflow-wrap: anywhere; }
+.gk-pill { display: inline-flex; padding: 3px 8px; border-radius: 999px; background: var(--bg-elevated); color: var(--text-soft); font-size: .74rem; line-height: 1.4; font-weight: 700; }
+.gk-pill[data-estado="aprobado"] { background: var(--success-bg); color: var(--text); }
+.gk-pill[data-estado="pendiente"] { background: var(--gold-soft); color: var(--gold-light); }
+.gk-pill[data-estado="rechazado"], .gk-pill[data-estado="eliminado"] { border: 1px solid var(--border); color: var(--error); }
+.gk-slide { width: min(700px, calc(100% - 30px)); max-height: min(760px, calc(100dvh - 30px)); margin: auto; padding: 0; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--bg-base); color: var(--text); box-shadow: 0 20px 55px var(--shadow-color); }
+.gk-slide::backdrop { background: rgba(0,0,0,.5); }
+.gk-slide-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 18px; background: var(--bg-base); border-bottom: 1px solid var(--border); }
+.gk-slide-head h2 { font-size: 1.12rem; overflow-wrap: anywhere; }
+.gk-slide-body { padding: 18px; }
+.gk-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.gk-fields > .gk-wide { grid-column: 1 / -1; }
+.gk-fields-source { min-width: 0; border: 0; }
+.gk-divider { border: 0; border-top: 1px solid var(--border); }
+.gk-meta { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%, 155px),1fr)); gap: 9px; }
+.gk-meta div { min-width: 0; padding: 8px 9px; background: var(--surface-2); border-radius: var(--r-sm); overflow-wrap: anywhere; }
+.gk-meta dt { color: var(--text-soft); font-size: .75rem; }
+.gk-meta dd { margin: 0; font-size: .86rem; font-weight: 700; }
+.gk-extract { max-height: 280px; overflow: auto; padding: 11px; background: var(--surface-2); border-radius: var(--r-sm); white-space: pre-wrap; overflow-wrap: anywhere; font-size: .86rem; }
+.gk-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.gk-stack summary { cursor: pointer; color: var(--text); }
+.gk-version { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.gk-version:last-child { border-bottom: 0; }
+.gk-overview { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.gk-overview strong { display: block; font-size: 1.55rem; overflow-wrap: anywhere; }
+.gk-review { padding: 11px 0; border-bottom: 1px solid var(--border); }
+.gk-review:last-child { border-bottom: 0; }
+.gk-review summary { overflow-wrap: anywhere; }
+.gk-details-scroll { max-height: 480px; overflow-y: auto; }
+.gk-result { background: var(--surface-1); border-radius: var(--r-sm); padding: 10px; }
+.gk [hidden] { display: none !important; }
+@media (max-width: 650px) {
+  .gk { gap: 12px; }
+  .gk-card { padding: 13px; }
+  .gk-source { grid-template-columns: minmax(0,1fr) auto; gap: 8px; }
+  .gk-source .gk-tags { grid-column: 1 / -1; grid-row: 2; }
+  .gk-fields { grid-template-columns: minmax(0,1fr); }
+  .gk-slide { width: calc(100% - 16px); max-height: calc(100dvh - 16px); border-radius: var(--r-md); }
+  .gk-slide-head { padding: 10px 12px; }
+  .gk-slide-body { padding: 12px; }
+  .gk-tab { flex: 1 1 auto; }
+}
