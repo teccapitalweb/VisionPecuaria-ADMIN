@@ -1,39 +1,36 @@
 (() => {
-  const API = 'https://visionpecuaria-webhook-production.up.railway.app';
+  const { api, curso, fechaHora } = window.AdminCursos;
   const METRICAS = [
-    { tipo: 'enlace_abierto', titulo: 'Enlaces abiertos', corto: 'Enlaces', estilo: 'promo-link' },
-    { tipo: 'video_reproducido', titulo: 'Reproducciones del video', corto: 'Videos', estilo: 'promo-video' },
+    { tipo: 'enlace_abierto', titulo: 'Enlaces de promoción abiertos', corto: 'Enlaces', estilo: 'promo-link', tiempo: 'enlace_tiempo' },
+    { tipo: 'video_reproducido', titulo: 'Reproducciones del video', corto: 'Videos', estilo: 'promo-video', tiempo: 'video_tiempo' },
     { tipo: 'checkout_creado', titulo: 'Sesiones de Stripe creadas', corto: 'Sesiones Stripe', estilo: 'promo-stripe' },
-    { tipo: 'checkout_montado', titulo: 'Formularios iniciados', corto: 'Formularios', estilo: 'promo-mounted' },
+    { tipo: 'checkout_montado', titulo: 'Formularios de pago abiertos', corto: 'Formularios', estilo: 'promo-mounted', tiempo: 'checkout_tiempo' },
+    { tipo: 'ya_pague', titulo: 'Aperturas de «Ya pagué»', corto: 'Ya pagué', estilo: 'promo-paid-help', tiempo: 'ya_pague_tiempo' },
   ];
-  const CURSOS = {
-    'gallinas-de-postura': 'Gallinas de Postura',
-    'embutidos-artesanales': 'Embutidos Artesanales y Chorizos',
-  };
-  const formatoFechaHora = new Intl.DateTimeFormat('es-MX', {
-    timeZone: 'America/Mexico_City', dateStyle: 'medium', timeStyle: 'medium', hourCycle: 'h23',
-  });
   const formatoDia = new Intl.DateTimeFormat('es-MX', { timeZone: 'UTC', day: 'numeric', month: 'short' });
   const numero = new Intl.NumberFormat('es-MX');
-  let filtros = { oferta: '', dias: '30' };
+  let filtros = { curso: '', origen: '', dias: '30' };
   let ofertas = [];
 
   const contar = (valor) => Math.max(0, Math.floor(Number(valor) || 0));
   const formatoConteo = (valor) => numero.format(contar(valor));
-  const curso = (slug) => CURSOS[slug] ?? slug;
-  const ruta = (oferta) => escapeHTML(curso(oferta.origenSlug)) + ' → ' + escapeHTML(curso(oferta.destinoSlug));
-  const clave = (oferta) => oferta.origenSlug + '|' + oferta.destinoSlug;
+  const ruta = (oferta) => (oferta.origenSlug ? escapeHTML(curso(oferta.origenSlug)) : 'Visita directa') +
+    ' → ' + escapeHTML(curso(oferta.destinoSlug));
+  const origenDe = (oferta) => oferta.origenSlug || 'directo';
 
-  function fechaHora(valor) {
-    const fecha = new Date(valor || '');
-    if (!Number.isFinite(fecha.getTime())) return 'Sin fecha';
-    const iso = fecha.toISOString();
-    return '<time datetime="' + iso + '">' + formatoFechaHora.format(fecha) + '</time>';
+  function formatoTiempo(segundos) {
+    const total = contar(segundos);
+    const horas = Math.floor(total / 3600);
+    const minutos = Math.floor(total / 60) % 60;
+    const segundosRestantes = total % 60;
+    if (horas) return horas + ' h ' + minutos + ' min';
+    if (minutos) return minutos + ' min ' + segundosRestantes + ' s';
+    return segundosRestantes + ' s';
   }
 
   function identidad(persona, ultimaActividad = '') {
-    const nombre = persona.nombre || persona.email || 'Cuenta sin nombre';
-    const detalle = persona.email && persona.email !== nombre ? '<small>' + escapeHTML(persona.email) + '</small>' : '';
+    const nombre = persona.anonimo ? 'Visitante anónimo' : persona.nombre || persona.email || 'Cuenta sin nombre';
+    const detalle = !persona.anonimo && persona.email && persona.email !== nombre ? '<small>' + escapeHTML(persona.email) + '</small>' : '';
     return '<div class="promo-person"><strong>' + escapeHTML(nombre) + '</strong>' + detalle + ultimaActividad + '</div>';
   }
 
@@ -66,20 +63,23 @@
     pintarPagina();
   }
 
-  function pintarGrafica(root, datosSerie) {
+  function pintarGrafica(root, datosSerie, mostrarTiempo = false) {
     const serie = datosSerie.filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x.fecha) && Number.isFinite(Date.parse(x.fecha)));
-    const escala = Math.max(1, ...serie.map((d) => METRICAS.reduce((suma, m) => suma + contar(d[m.tipo]), 0)));
-    if (escala === 1 && serie.every((d) => METRICAS.every((m) => !contar(d[m.tipo])))) {
-      root.innerHTML = '<p class="promo-note">La gráfica aparecerá cuando se registre actividad.</p>';
+    const metricas = mostrarTiempo ? METRICAS.filter((m) => m.tiempo) : METRICAS;
+    const valorDia = (d, m) => contar(mostrarTiempo ? d.duraciones?.[m.tiempo] : d[m.tipo]);
+    const formato = mostrarTiempo ? formatoTiempo : formatoConteo;
+    const escala = Math.max(0, ...serie.map((d) => metricas.reduce((suma, m) => suma + valorDia(d, m), 0)));
+    if (!escala) {
+      root.innerHTML = '<p class="promo-note">' + (mostrarTiempo ? 'Aún no hay tiempos registrados en este periodo.' : 'Aún no hay actividad en este periodo.') + '</p>';
       return;
     }
-    const resumen = (d) => METRICAS.map((m) => m.corto + ' ' + formatoConteo(d[m.tipo])).join(' · ');
+    const resumen = (d) => metricas.map((m) => m.corto + ' ' + formato(valorDia(d, m))).join(' · ');
     const dia = (d) => formatoDia.format(new Date(d.fecha + 'T00:00:00Z'));
-    root.innerHTML = '<ul class="promo-legend">' + METRICAS.map((m) =>
+    root.innerHTML = '<ul class="promo-legend">' + metricas.map((m) =>
       '<li><i class="promo-dot ' + m.estilo + '" aria-hidden="true"></i>' + m.corto + '</li>'
     ).join('') + '</ul><div class="promo-chart"><div class="promo-chart-grid">' + serie.map((d, i) => {
-      const barras = METRICAS.map((m) => {
-        const valor = contar(d[m.tipo]);
+      const barras = metricas.map((m) => {
+        const valor = valorDia(d, m);
         return valor ? '<span class="' + m.estilo + '" style="height:' + (valor * 88 / escala).toFixed(2) + 'px"></span>' : '';
       }).join('');
       const etiqueta = escapeHTML(dia(d));
@@ -95,7 +95,7 @@
       detalle.innerHTML = '<strong>' + escapeHTML(dia(d)) + '</strong> · ' + resumen(d);
     }
     botones.forEach((b, i) => b.addEventListener('click', () => seleccionar(i)));
-    const indice = serie.findLastIndex((d) => METRICAS.some((m) => contar(d[m.tipo]) > 0));
+    const indice = serie.findLastIndex((d) => metricas.some((m) => valorDia(d, m) > 0));
     seleccionar(indice);
     const grafica = root.querySelector('.promo-chart');
     grafica.scrollLeft = grafica.scrollWidth;
@@ -107,87 +107,109 @@
       : '') +
       '<div class="promo-kpis" aria-label="Totales del periodo">' + METRICAS.map((m) => {
         const total = data.totales?.[m.tipo] || {};
-        const personas = contar(total.personas);
+        const identificados = contar(total.identificados ?? total.personas);
+        const anonimos = contar(total.anonimos);
+        const duracion = contar(data.totales?.[m.tiempo]?.duracionSeg);
+        const tiempo = m.tiempo ? '<p class="kpi-detail">' + (duracion ? 'Tiempo registrado · ' + formatoTiempo(duracion) : 'Sin tiempo registrado') + '</p>' : '';
         return '<article class="kpi"><div class="kpi-head"><span class="promo-dot ' + m.estilo + '" aria-hidden="true"></span>' +
           '<h2 class="kpi-label">' + m.titulo + '</h2></div><p class="kpi-value">' + formatoConteo(total.eventos) + '</p>' +
-          '<p class="kpi-detail">' + formatoConteo(personas) + ' ' + (personas === 1 ? 'persona' : 'personas') + '</p></article>';
+          '<p class="kpi-detail">' + formatoConteo(identificados) + (identificados === 1 ? ' identificado' : ' identificados') +
+          ' · ' + formatoConteo(anonimos) + (anonimos === 1 ? ' anónimo' : ' anónimos') + '</p>' + tiempo + '</article>';
       }).join('') + '</div>' +
-      '<p class="promo-note">Los formularios iniciados se registran cuando el panel monta Stripe. La carga final y el pago se verifican aparte.</p>' +
-      '<section class="block"><div class="promo-block-head"><h2>Actividad por día</h2><span class="promo-note">Hora de Ciudad de México</span></div><div data-grafica></div></section>' +
-      '<section class="block"><div class="promo-block-head"><h2>Actividad por persona</h2>' +
-      (data.personasTruncadas ? '<span class="promo-note">Se muestran hasta 200 cuentas</span>' : '') +
+      '<p class="promo-note">Se registra el tiempo visible en la página abierta desde una promoción, el formulario y «Ya pagué», así como el tiempo de reproducción del video. Las visitas anónimas se cuentan por navegador. Para confirmar un pago, consulta Compras y accesos.</p>' +
+      '<section class="block"><div class="promo-block-head"><h2>Actividad por día</h2><span class="promo-note">Hora de Ciudad de México</span></div>' +
+      '<div class="promo-chart-controls" role="group" aria-label="Medida de la gráfica"><button type="button" class="tab-pill active" data-medida="conteos" aria-pressed="true">Eventos</button>' +
+      '<button type="button" class="tab-pill" data-medida="tiempos" aria-pressed="false">Tiempo registrado</button></div><div data-grafica></div></section>' +
+      '<section class="block"><div class="promo-block-head"><h2>Actividad por visitante</h2>' +
+      (data.personasTruncadas ? '<span class="promo-note">Se muestran hasta 200 visitantes</span>' : '') +
       '</div><div data-personas></div></section>' +
       '<section class="block"><div class="promo-block-head"><h2>Eventos recientes</h2><span class="promo-note">' +
       (data.detalleTruncado ? 'Últimos 200 eventos · ' : '') + 'Hora de Ciudad de México</span></div><div data-eventos></div></section>';
-    pintarGrafica(root.querySelector('[data-grafica]'), data.serie || []);
+    const grafica = root.querySelector('[data-grafica]');
+    const medidas = root.querySelectorAll('[data-medida]');
+    pintarGrafica(grafica, data.serie || []);
+    medidas.forEach((boton) => boton.onclick = () => {
+      medidas.forEach((m) => {
+        const activa = m === boton;
+        m.classList.toggle('active', activa);
+        m.setAttribute('aria-pressed', String(activa));
+      });
+      pintarGrafica(grafica, data.serie || [], boton.dataset.medida === 'tiempos');
+    });
     pintarLista(root.querySelector('[data-personas]'), data.personas || [], (p) =>
       '<li>' + identidad(p, p.ultimoEn ? '<small>Última actividad ' + fechaHora(p.ultimoEn) + '</small>' : '') +
-      '<dl class="promo-totals">' + METRICAS.map((m) =>
-        '<div><dt>' + m.corto + '</dt><dd>' + formatoConteo(p.totales?.[m.tipo]) + '</dd></div>'
-      ).join('') + '</dl></li>',
-    'cuentas', 'Aún no se registra actividad de alumnos en este periodo.');
+      '<dl class="promo-totals">' + METRICAS.filter((m) => p.totales?.[m.tipo] || p.duraciones?.[m.tiempo]).map((m) => {
+        const duracion = contar(p.duraciones?.[m.tiempo]);
+        const tiempo = duracion ? ' · ' + formatoTiempo(duracion) : '';
+        return '<div><dt>' + m.corto + '</dt><dd>' + formatoConteo(p.totales?.[m.tipo]) + tiempo + '</dd></div>';
+      }).join('') + '</dl></li>',
+    'visitantes', 'Aún no se registra actividad en este periodo.');
     pintarLista(root.querySelector('[data-eventos]'), data.eventos || [], (e) => {
-      const metrica = METRICAS.find((m) => m.tipo === e.tipo);
-      const etiqueta = metrica ? metrica.titulo : 'Actividad';
+      const metrica = METRICAS.find((m) => m.tipo === e.tipo || m.tiempo === e.tipo);
+      const esTiempo = Boolean(metrica?.tiempo && metrica.tiempo === e.tipo);
+      const etiqueta = esTiempo ? 'Tiempo · ' + metrica.corto : metrica?.titulo || 'Actividad';
+      const duracion = esTiempo ? '<small>' + formatoTiempo(e.duracionSeg) + '</small>' : '';
+      const modo = e.modo === 'automatico' ? '<small>Reproducción automática</small>' :
+        e.modo === 'manual' ? '<small>Reproducción manual</small>' : '';
       const estilo = metrica ? metrica.estilo : '';
       return '<li>' + identidad(e) + '<div><div class="promo-type"><span class="promo-dot ' + estilo + '" aria-hidden="true"></span>' +
-        etiqueta + '</div><span class="promo-route">' + ruta(e) + '</span></div>' + fechaHora(e.fechaEn) + '</li>';
+        etiqueta + '</div>' + duracion + modo + '<span class="promo-route">' + ruta(e) + '</span></div>' + fechaHora(e.fechaEn) + '</li>';
     }, 'eventos', 'Aún no hay eventos para esta búsqueda.');
   }
 
-  PAGES.promociones = function () {
+  window.renderActividadCursos = function (contenedor) {
     const reporte = document.createElement('section');
     reporte.className = 'promo-report';
-    reporte.innerHTML = '<div class="page-header"><div><h1>Promociones de cursos</h1><p>Seguimiento de ofertas para alumnos de Visión Pecuaria</p></div></div>' +
-      '<form class="block promo-filters"><label>Promoción<select name="oferta"></select></label>' +
+    reporte.innerHTML = '<form class="block promo-filters"><label>Curso<select name="curso"></select></label>' +
+      '<label>Origen<select name="origen"></select></label>' +
       '<label>Periodo<select name="dias">' + [7, 14, 30, 60, 90].map((d) => '<option value="' + d + '">Últimos ' + d + ' días</option>').join('') +
       '</select></label><button class="action-btn action-btn--ghost" type="submit">Actualizar</button></form>' +
       '<div class="promo-report" data-resultado></div>';
-    document.getElementById('content').replaceChildren(reporte);
+    contenedor.replaceChildren(reporte);
     const form = reporte.querySelector('form');
     const resultado = reporte.querySelector('[data-resultado]');
-    const oferta = form.elements.oferta;
+    const destino = form.elements.curso;
+    const origen = form.elements.origen;
     const dias = form.elements.dias;
     let controller;
 
-    function pintarOpciones() {
-      oferta.innerHTML = '<option value="">Todas las promociones</option>' + ofertas.map((item) =>
-        '<option value="' + escapeHTML(clave(item)) + '">' + ruta(item) + '</option>'
+    function pintarOrigen(slug, valor) {
+      const canales = new Set(ofertas.filter((x) => !slug || x.destinoSlug === slug).map(origenDe));
+      origen.innerHTML = '<option value="">Todos los orígenes</option>' + Array.from(canales, (item) =>
+        '<option value="' + escapeHTML(item) + '">' + (item === 'directo' ? 'Visita directa' : 'Desde ' + escapeHTML(curso(item))) + '</option>'
       ).join('');
-      oferta.value = filtros.oferta;
+      origen.value = canales.has(valor) ? valor : '';
+    }
+
+    function pintarOpciones() {
+      const cursos = new Set(ofertas.map((item) => item.destinoSlug));
+      destino.innerHTML = '<option value="">Todos los cursos</option>' + Array.from(cursos, (slug) =>
+        '<option value="' + escapeHTML(slug) + '">' + escapeHTML(curso(slug)) + '</option>'
+      ).join('');
+      destino.value = cursos.has(filtros.curso) ? filtros.curso : '';
+      pintarOrigen(destino.value, filtros.origen);
       dias.value = filtros.dias;
     }
 
     async function cargar() {
-      filtros = { oferta: oferta.value, dias: dias.value };
+      filtros = { curso: destino.value, origen: origen.value, dias: dias.value };
       controller?.abort();
       controller = new AbortController();
       const signal = controller.signal;
       const params = new URLSearchParams({ dias: filtros.dias });
-      const seleccion = ofertas.find((item) => clave(item) === filtros.oferta);
-      if (seleccion) {
-        params.set('origenSlug', seleccion.origenSlug);
-        params.set('destinoSlug', seleccion.destinoSlug);
-      }
+      if (filtros.origen) params.set('origenSlug', filtros.origen);
+      if (filtros.curso) params.set('destinoSlug', filtros.curso);
       resultado.innerHTML = '<p class="block promo-note" role="status">Cargando actividad…</p>';
       try {
-        const user = auth.currentUser;
-        if (!user) throw new Error('sesion');
-        const token = await user.getIdToken();
-        const res = await fetch(API + '/admin/cursos/promociones/metricas?' + params, {
-          headers: { Authorization: 'Bearer ' + token }, signal, cache: 'no-store',
-        });
-        if (res.status === 401 || res.status === 403) throw new Error('sesion');
-        if (!res.ok) throw new Error('red');
-        const data = await res.json();
+        const data = await api('promociones/metricas', params, signal);
         if (signal.aborted || !reporte.isConnected) return;
-        ofertas = (data.ofertas || []).filter((x) => x.origenSlug && x.destinoSlug);
-        if (filtros.oferta && !ofertas.some((x) => clave(x) === filtros.oferta)) filtros.oferta = '';
+        const recibidas = (data.ofertas || []).filter((x) => x.destinoSlug);
+        if (recibidas.length) ofertas = recibidas;
         pintarOpciones();
         pintarDatos(resultado, data);
       } catch (error) {
         if (signal.aborted || !reporte.isConnected) return;
-        const mensaje = error.message === 'sesion'
+        const mensaje = error.faltaSesion
           ? 'Se requiere una sesión de administrador para ver este informe.'
           : 'No pudimos cargar la actividad. Pulsa Actualizar para volver a intentar.';
         resultado.innerHTML = '<p class="block promo-note" role="alert">' + mensaje + '</p>';
@@ -195,7 +217,10 @@
     }
 
     form.addEventListener('submit', (event) => { event.preventDefault(); cargar(); });
-    form.addEventListener('change', cargar);
+    form.addEventListener('change', (event) => {
+      if (event.target === destino) pintarOrigen(destino.value, origen.value);
+      cargar();
+    });
     pintarOpciones();
     cargar();
   };
