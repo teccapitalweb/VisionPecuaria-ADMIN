@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="promociones.css">
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -1052,6 +1053,10 @@ input, textarea, select { font-family: inherit; outline: none; }
       <span class="sb-nav-icon">📊</span>
       <span class="sb-nav-label">Estadísticas</span>
     </button>
+    <button class="sb-nav-item" data-page="promociones">
+      <span class="sb-nav-icon">↗</span>
+      <span class="sb-nav-label">Promociones</span>
+    </button>
     <button class="sb-nav-item" data-page="pagos">
       <span class="sb-nav-icon">💰</span>
       <span class="sb-nav-label">Pagos</span>
@@ -1266,6 +1271,7 @@ const PAGE_META = {
   webinars: { title: '📡 Sesiones en vivo', sub: 'Programa webinars y eventos en directo' },
   certificados: { title: '🎖️ Certificados', sub: 'Emisión y verificación de constancias' },
   estadisticas: { title: '📊 Estadísticas', sub: 'Métricas y análisis de la plataforma' },
+  promociones: { title: 'Promociones', sub: 'Actividad de las ofertas de cursos' },
   pagos: { title: '💰 Pagos', sub: 'Historial completo de transacciones' },
   config: { title: '⚙️ Configuración', sub: 'Ajustes generales de Visión Pecuaria' }
 };
@@ -2670,6 +2676,7 @@ const CMDK_ACTIONS = [
   { icon: '📢', text: 'Avisos', action: () => navigateTo('avisos') },
   { icon: '🎖️', text: 'Certificados', action: () => navigateTo('certificados') },
   { icon: '📊', text: 'Estadísticas', action: () => navigateTo('estadisticas') },
+  { icon: '↗', text: 'Promociones de cursos', action: () => navigateTo('promociones') },
   { icon: '💰', text: 'Pagos', action: () => navigateTo('pagos') },
   { icon: '⚙️', text: 'Configuración', action: () => navigateTo('config') },
   { icon: '➕', text: 'Crear nuevo curso', action: () => { navigateTo('cursos'); setTimeout(abrirModalNuevoCurso, 300); } },
@@ -2723,6 +2730,7 @@ document.addEventListener('keydown', e => {
 });
 document.getElementById('cmdkInput').addEventListener('input', e => pintarCmdK(e.target.value));
 </script>
+<script src="promociones.js"></script>
 
 </body>
 </html>
