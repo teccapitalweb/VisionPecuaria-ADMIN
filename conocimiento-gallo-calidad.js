@@ -100,33 +100,44 @@
 
   function pintarEvaluaciones(raiz, datos, helpers) {
     const { api, esc } = helpers;
+    const casosModelo = datos.casosModelo || [];
     raiz.innerHTML = '<section class="gk-card gk-stack"><h2>Evaluaciones de referencia</h2>' +
       '<p class="gk-note">Comprueba el comportamiento de la guía de Mi Gallo IA con preguntas de referencia.</p>' +
       '<p class="gk-help">Versión ' + esc(datos.suiteVersion || 'sin registro') + ' · ' + esc(datos.casos?.length || '0') + ' casos</p>' +
-      '<div class="gk-actions"><button type="button" class="gk-btn gk-btn--primary" data-ejecutar>Ejecutar evaluación</button></div>' +
+      '<div class="gk-actions"><button type="button" class="gk-btn gk-btn--primary" data-ejecutar>Evaluar la guía</button></div>' +
+      (casosModelo.length ? '<div class="gk-toolbar"><label class="gk-label">Prueba del modelo<select class="gk-control" data-caso>' +
+        casosModelo.map((caso) => '<option value="' + esc(caso.id) + '">' + esc(caso.pregunta) + '</option>').join('') +
+        '</select></label><button type="button" class="gk-btn" data-probar' + (datos.modeloDisponible ? '' : ' disabled') +
+        '>Probar el modelo</button></div><p class="gk-help">' + (datos.modeloDisponible
+          ? 'Envía un caso ficticio al proveedor y cuenta para el consumo diario.'
+          : 'Disponible cuando se configure el proveedor y sus límites.') + '</p>' : '') +
       '<p class="gk-status" role="status" data-evaluacion-estado></p><div data-resultados></div>' +
       '<details><summary>Preguntas de referencia</summary><ol class="gk-list">' +
       (datos.casos || []).map((caso) => '<li class="gk-review"><strong>' + esc(caso.pregunta) +
         '</strong><p class="gk-note">' + esc(caso.objetivo) + '</p></li>').join('') +
       '</ol></details></section>';
     const boton = raiz.querySelector('[data-ejecutar]');
+    const probar = raiz.querySelector('[data-probar]');
     const aviso = raiz.querySelector('[data-evaluacion-estado]');
     const resultados = raiz.querySelector('[data-resultados]');
-    boton.onclick = async () => {
+    const casos = [...(datos.casos || []), ...casosModelo];
+    async function ejecutar(body) {
       boton.disabled = true;
+      if (probar) probar.disabled = true;
       aviso.dataset.error = 'false';
       aviso.setAttribute('role', 'status');
       aviso.textContent = 'Ejecutando la evaluación…';
       resultados.replaceChildren();
       try {
-        const respuesta = await api(EVALUACIONES, { body: {} });
+        const respuesta = await api(EVALUACIONES, { body });
         if (!resultados.isConnected) return;
-        aviso.textContent = respuesta.aprobadas + ' de ' + respuesta.total +
-          ' comprobaciones satisfactorias · Versión ' + respuesta.suiteVersion;
+        aviso.textContent = (respuesta.modo === 'ia' ? 'Modelo · ' : 'Guía · ') +
+          respuesta.aprobadas + ' de ' + respuesta.total + ' comprobaciones satisfactorias · Versión ' +
+          respuesta.suiteVersion + (respuesta.motorVersion ? ' · ' + respuesta.motorVersion : '');
         resultados.innerHTML = '<ol class="gk-list">' + (respuesta.resultados || []).map((item) =>
           '<li class="gk-result"><details><summary><span class="gk-pill" data-estado="' +
           (item.satisfactorio ? 'aprobado">Cumple' : 'pendiente">Por revisar') + '</span> ' +
-          esc(datos.casos?.find((caso) => caso.id === item.id)?.pregunta || item.id) + '</summary>' +
+          esc(casos.find((caso) => caso.id === item.id)?.pregunta || item.id) + '</summary>' +
           '<p class="gk-note">' + esc(item.objetivo) + '</p>' +
           (item.respuesta ? '<p class="gk-extract">' + esc(item.respuesta) + '</p>' : '') + '</details></li>'
         ).join('') + '</ol>';
@@ -136,8 +147,13 @@
           aviso.setAttribute('role', 'alert');
           aviso.textContent = error.message;
         }
-      } finally { boton.disabled = false; }
-    };
+      } finally {
+        boton.disabled = false;
+        if (probar) probar.disabled = !datos.modeloDisponible;
+      }
+    }
+    boton.onclick = () => ejecutar({});
+    if (probar) probar.onclick = () => ejecutar({ modo: 'ia', casoId: raiz.querySelector('[data-caso]').value });
   }
 
   window.renderCalidadGallo = function (panel, helpers) {
