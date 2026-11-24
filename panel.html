@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="promociones.css?v=2">
+<link rel="stylesheet" href="conocimiento-gallo.css">
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -1240,6 +1241,10 @@ input, textarea, select { font-family: inherit; outline: none; }
 
   <div class="sb-section-label">Sistema</div>
   <nav class="sb-nav">
+    <button class="sb-nav-item" data-page="conocimientoGallo">
+      <span class="sb-nav-icon" aria-hidden="true">🐓</span>
+      <span class="sb-nav-label">Centro de conocimiento</span>
+    </button>
     <button class="sb-nav-item" data-page="config">
       <span class="sb-nav-icon">⚙️</span>
       <span class="sb-nav-label">Configuración</span>
@@ -1458,6 +1463,7 @@ const PAGE_META = {
   estadisticas: { title: '📊 Estadísticas', sub: 'Métricas y análisis de la plataforma' },
   cursosIndividuales: { title: 'Cursos individuales', sub: 'Compras, accesos y actividad del aula' },
   pagos: { title: '💰 Pagos', sub: 'Historial completo de transacciones' },
+  conocimientoGallo: { title: 'Centro de conocimiento — Mi Gallo IA', sub: 'Fuentes, revisiones y evaluaciones del asistente' },
   config: { title: '⚙️ Configuración', sub: 'Ajustes generales de Visión Pecuaria' }
 };
 window.navigateTo = function(page) {
@@ -4765,6 +4771,7 @@ window.guardarConfig = function() {
 // 🔍 COMMAND PALETTE (Cmd+K)
 // ═══════════════════════════════════════════════════════════
 const CMDK_ACTIONS = [
+  { icon: '🐓', text: 'Centro de conocimiento — Mi Gallo IA', action: () => navigateTo('conocimientoGallo') },
   { icon: '🏠', text: 'Ir al Dashboard', action: () => navigateTo('dashboard') },
   { icon: '👥', text: 'Ver miembros', action: () => navigateTo('miembros') },
   { icon: '⏳', text: 'Pagos pendientes', action: () => navigateTo('pendientes') },
@@ -4832,6 +4839,8 @@ document.getElementById('cmdkInput').addEventListener('input', e => pintarCmdK(e
 </script>
 <script src="cursos-individuales.js"></script>
 <script src="promociones.js?v=2"></script>
+<script src="conocimiento-gallo-calidad.js"></script>
+<script src="conocimiento-gallo.js"></script>
 
 </body>
 </html>
